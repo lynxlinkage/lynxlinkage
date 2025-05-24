@@ -1,10 +1,26 @@
 <script>
-  // Images for gallery
+  // Images for gallery with links
   const galleryImages = [
-    { src: 'https://placehold.co/600x400?text=Product+View+1', alt: 'Product view 1' },
-    { src: 'https://placehold.co/600x400?text=Product+View+2', alt: 'Product view 2' },
-    { src: 'https://placehold.co/600x400?text=Product+View+3', alt: 'Product view 3' },
-    { src: 'https://placehold.co/600x400?text=Product+View+4', alt: 'Product view 4' },
+    { 
+      src: 'https://placehold.co/600x400?text=Product+View+1', 
+      alt: 'Product view 1',
+      url: 'https://example.com/feature1'
+    },
+    { 
+      src: 'https://placehold.co/600x400?text=Product+View+2', 
+      alt: 'Product view 2',
+      url: 'https://example.com/feature2'
+    },
+    { 
+      src: 'https://placehold.co/600x400?text=Product+View+3', 
+      alt: 'Product view 3',
+      url: 'https://example.com/feature3'
+    },
+    { 
+      src: 'https://placehold.co/600x400?text=Product+View+4', 
+      alt: 'Product view 4',
+      url: 'https://example.com/feature4'
+    },
   ];
 </script>
 
@@ -50,7 +66,9 @@
     <div class="gallery-grid">
       {#each galleryImages as image}
         <div class="gallery-item">
-          <img src={image.src} alt={image.alt} />
+          <a href={image.url} target="_blank" rel="noopener noreferrer">
+            <img src={image.src} alt={image.alt} />
+          </a>
         </div>
       {/each}
     </div>
@@ -276,11 +294,18 @@
     overflow: hidden;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
   }
   
   .gallery-item:hover {
     transform: translateY(-5px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  
+  .gallery-item a {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
   
   .gallery-item img {
