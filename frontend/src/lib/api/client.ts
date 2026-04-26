@@ -1,4 +1,5 @@
 import type {
+	Application,
 	ContactPayload,
 	JobPosting,
 	JobUpsertPayload,
@@ -119,4 +120,76 @@ export async function adminUpdateJob(
 
 export async function adminDeleteJob(id: number): Promise<void> {
 	await request<void>(`/api/v1/admin/jobs/${id}`, { method: 'DELETE' });
+}
+
+export interface SubmitApplicationInput {
+	name: string;
+	email: string;
+	message?: string;
+	files: File[];
+}
+
+export interface SubmitApplicationResult {
+	ok: boolean;
+	id?: number;
+	files?: number;
+	error?: string;
+}
+
+/**
+ * Submits a candidate application as multipart/form-data. We don't go
+ * through `request()` because that helper forces JSON content-type and
+ * we need the browser to set its own multipart boundary.
+ */
+export async function submitApplication(
+	jobId: number,
+	input: SubmitApplicationInput
+): Promise<SubmitApplicationResult> {
+	const fd = new FormData();
+	fd.set('name', input.name);
+	fd.set('email', input.email);
+	if (input.message) fd.set('message', input.message);
+	for (const f of input.files) fd.append('files', f, f.name);
+
+	try {
+		const res = await fetch(`/api/v1/jobs/${jobId}/applications`, {
+			method: 'POST',
+			body: fd
+		});
+		if (res.status === 429) {
+			return { ok: false, error: 'Too many submissions. Please try again in a minute.' };
+		}
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			return {
+				ok: false,
+				error: (body as { error?: string })?.error ?? `Submission failed (${res.status}).`
+			};
+		}
+		const body = (await res.json()) as { id?: number; files?: number };
+		return { ok: true, id: body.id, files: body.files };
+	} catch (err) {
+		return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
+	}
+}
+
+export async function adminListApplications(jobId?: number): Promise<Application[]> {
+	const qs = jobId ? `?jobId=${jobId}` : '';
+	const body = await request<ListResponse<Application>>(`/api/v1/admin/applications${qs}`, {
+		method: 'GET'
+	});
+	return body.items ?? [];
+}
+
+export async function adminGetApplication(id: number): Promise<Application> {
+	return request<Application>(`/api/v1/admin/applications/${id}`, { method: 'GET' });
+}
+
+/**
+ * Returns the URL to the download endpoint for an application file.
+ * The browser will follow same-origin cookies automatically when the
+ * URL is hit via an <a href> click or window.open.
+ */
+export function applicationFileUrl(applicationId: number, fileId: number): string {
+	return `/api/v1/admin/applications/${applicationId}/files/${fileId}`;
 }

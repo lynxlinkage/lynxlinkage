@@ -13,19 +13,29 @@ import (
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/uploads"
 )
 
 // Server bundles the dependencies handlers need.
 type Server struct {
-	Logger    *slog.Logger
-	Validate  *validator.Validate
-	Research  *store.ResearchRepo
-	Jobs      *store.JobRepo
-	Partners  *store.PartnerRepo
-	Contact   *store.ContactRepo
-	Users     *store.UserRepo
-	ContactRL *middleware.IPRateLimiter
-	Auth      *auth.Manager
+	Logger       *slog.Logger
+	Validate     *validator.Validate
+	Research     *store.ResearchRepo
+	Jobs         *store.JobRepo
+	Partners     *store.PartnerRepo
+	Contact      *store.ContactRepo
+	Users        *store.UserRepo
+	Applications *store.ApplicationRepo
+	Uploads      *uploads.Store
+	ContactRL    *middleware.IPRateLimiter
+	ApplyRL      *middleware.IPRateLimiter
+	Auth         *auth.Manager
+
+	// Upload limits surfaced from config so handlers don't reach back
+	// into env-loading code.
+	MaxUploadFiles      int
+	MaxUploadFileBytes  int64
+	MaxUploadTotalBytes int64
 }
 
 // Register mounts all routes under /api/v1 on the provided router.
@@ -44,6 +54,15 @@ func (s *Server) Register(r *gin.Engine) {
 		}
 		contact.POST("", s.handleSubmitContact)
 
+		// Public: candidate applications. Rate-limited per IP separately
+		// from contact so a campaign spam-attempt against one form
+		// doesn't lock the other out.
+		apply := v1.Group("/jobs/:id/applications")
+		if s.ApplyRL != nil {
+			apply.Use(s.ApplyRL.Middleware())
+		}
+		apply.POST("", s.handleSubmitApplication)
+
 		// Authentication: open login + protected logout/me.
 		v1auth := v1.Group("/auth")
 		v1auth.POST("/login", s.handleLogin)
@@ -59,6 +78,10 @@ func (s *Server) Register(r *gin.Engine) {
 			admin.POST("/jobs", s.handleAdminCreateJob)
 			admin.PUT("/jobs/:id", s.handleAdminUpdateJob)
 			admin.DELETE("/jobs/:id", s.handleAdminDeleteJob)
+
+			admin.GET("/applications", s.handleAdminListApplications)
+			admin.GET("/applications/:id", s.handleAdminGetApplication)
+			admin.GET("/applications/:id/files/:fileId", s.handleAdminDownloadApplicationFile)
 		}
 	}
 }

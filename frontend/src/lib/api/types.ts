@@ -76,3 +76,23 @@ export interface JobUpsertPayload {
 	postedAt?: string;
 	isActive?: boolean;
 }
+
+export interface ApplicationFile {
+	id: number;
+	applicationId: number;
+	originalName: string;
+	contentType: string;
+	sizeBytes: number;
+	createdAt: string;
+}
+
+export interface Application {
+	id: number;
+	jobId: number;
+	jobTitle?: string;
+	name: string;
+	email: string;
+	message: string;
+	createdAt: string;
+	files?: ApplicationFile[];
+}

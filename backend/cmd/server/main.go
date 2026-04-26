@@ -23,6 +23,7 @@ import (
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/static"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/uploads"
 )
 
 func main() {
@@ -59,19 +60,31 @@ func run() error {
 	defer db.Close()
 
 	contactRL := middleware.NewIPRateLimiter(cfg.ContactRPS, cfg.ContactBurst)
+	applyRL := middleware.NewIPRateLimiter(cfg.ApplicationRPS, cfg.ApplicationBurst)
 	users := store.NewUserRepo(db)
 	authMgr := auth.NewManager(cfg.SessionSecret, cfg.SessionTTL, users, cfg.Env == "production")
 
+	uploadStore, err := uploads.NewStore(cfg.UploadDir)
+	if err != nil {
+		return err
+	}
+
 	server := &api.Server{
-		Logger:    logger,
-		Validate:  validator.New(validator.WithRequiredStructEnabled()),
-		Research:  store.NewResearchRepo(db),
-		Jobs:      store.NewJobRepo(db),
-		Partners:  store.NewPartnerRepo(db),
-		Contact:   store.NewContactRepo(db),
-		Users:     users,
-		ContactRL: contactRL,
-		Auth:      authMgr,
+		Logger:              logger,
+		Validate:            validator.New(validator.WithRequiredStructEnabled()),
+		Research:            store.NewResearchRepo(db),
+		Jobs:                store.NewJobRepo(db),
+		Partners:            store.NewPartnerRepo(db),
+		Contact:             store.NewContactRepo(db),
+		Users:               users,
+		Applications:        store.NewApplicationRepo(db),
+		Uploads:             uploadStore,
+		ContactRL:           contactRL,
+		ApplyRL:             applyRL,
+		Auth:                authMgr,
+		MaxUploadFiles:      cfg.MaxUploadFiles,
+		MaxUploadFileBytes:  cfg.MaxUploadFileBytes,
+		MaxUploadTotalBytes: cfg.MaxUploadTotalBytes,
 	}
 
 	r := gin.New()

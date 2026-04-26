@@ -3,6 +3,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { employmentLabel, formatDate } from '$lib/format';
+	import { submitApplication } from '$lib/api/client';
 
 	interface Props {
 		data: PageData;
@@ -11,12 +12,92 @@
 	let { data }: Props = $props();
 	const job = $derived(data.job);
 
-	const applyHref = $derived(
-		job.applyUrlOrEmail.includes('@')
-			? `mailto:${job.applyUrlOrEmail}?subject=${encodeURIComponent(`Application: ${job.title}`)}`
-			: job.applyUrlOrEmail
-	);
-	const isExternalLink = $derived(!job.applyUrlOrEmail.includes('@'));
+	const MAX_FILES = 3;
+	const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+	let name = $state('');
+	let email = $state('');
+	let message = $state('');
+	let files = $state<File[]>([]);
+	let formError = $state<string | null>(null);
+	let submitting = $state(false);
+	let submitted = $state(false);
+
+	let fileInputEl = $state<HTMLInputElement | null>(null);
+
+	function fmtBytes(n: number): string {
+		if (n < 1024) return `${n} B`;
+		if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+		return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function onPickFiles(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const picked = input.files ? Array.from(input.files) : [];
+		const next = [...files];
+		for (const f of picked) {
+			if (next.some((x) => x.name === f.name && x.size === f.size)) continue;
+			next.push(f);
+		}
+		const truncated = next.slice(0, MAX_FILES);
+		const oversized = truncated.find((f) => f.size > MAX_FILE_BYTES);
+		if (oversized) {
+			formError = `"${oversized.name}" is larger than 10 MB. Please upload a smaller file.`;
+			input.value = '';
+			return;
+		}
+		if (next.length > MAX_FILES) {
+			formError = `You can attach at most ${MAX_FILES} files.`;
+		} else {
+			formError = null;
+		}
+		files = truncated;
+		input.value = '';
+	}
+
+	function removeFile(idx: number) {
+		files = files.filter((_, i) => i !== idx);
+		formError = null;
+	}
+
+	async function handleSubmit(event: Event) {
+		event.preventDefault();
+		if (submitting) return;
+		formError = null;
+
+		if (!name.trim()) {
+			formError = 'Please enter your name.';
+			return;
+		}
+		if (!email.trim() || !email.includes('@')) {
+			formError = 'Please enter a valid email.';
+			return;
+		}
+		if (files.length > MAX_FILES) {
+			formError = `You can attach at most ${MAX_FILES} files.`;
+			return;
+		}
+		for (const f of files) {
+			if (f.size > MAX_FILE_BYTES) {
+				formError = `"${f.name}" is larger than 10 MB.`;
+				return;
+			}
+		}
+
+		submitting = true;
+		const result = await submitApplication(job.id, {
+			name: name.trim(),
+			email: email.trim(),
+			message: message.trim(),
+			files
+		});
+		submitting = false;
+		if (!result.ok) {
+			formError = result.error ?? 'Submission failed. Please try again.';
+			return;
+		}
+		submitted = true;
+	}
 </script>
 
 <Seo
@@ -42,15 +123,7 @@
 			</div>
 			<h1 class="job__title">{job.title}</h1>
 			<div class="job__cta">
-				<Button
-					href={applyHref}
-					variant="primary"
-					size="lg"
-					rel={isExternalLink ? 'noopener noreferrer' : undefined}
-					target={isExternalLink ? '_blank' : undefined}
-				>
-					Apply now
-				</Button>
+				<Button href="#apply" variant="primary" size="lg">Apply now</Button>
 				<Button href="/hiring" variant="ghost">Other roles</Button>
 			</div>
 		</div>
@@ -61,22 +134,112 @@
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			<div class="prose">{@html data.descriptionHtml}</div>
 
-			<div class="job__apply-footer">
-				<h2>Sounds like you?</h2>
-				<p>
-					Send a CV (or a link to your work) to
-					<a href={`mailto:${job.applyUrlOrEmail.includes('@') ? job.applyUrlOrEmail : 'careers@lynxlinkage.com'}?subject=${encodeURIComponent(`Application: ${job.title}`)}`}>
-						{job.applyUrlOrEmail.includes('@') ? job.applyUrlOrEmail : 'careers@lynxlinkage.com'}
-					</a>. A short note about why this role catches your eye goes a long way.
-				</p>
-				<Button
-					href={applyHref}
-					variant="primary"
-					rel={isExternalLink ? 'noopener noreferrer' : undefined}
-					target={isExternalLink ? '_blank' : undefined}
-				>
-					Apply for {job.title}
-				</Button>
+			<div id="apply" class="apply">
+				{#if submitted}
+					<div class="apply__success" role="status" aria-live="polite">
+						<h2>Thanks — we got it.</h2>
+						<p>
+							Your application for <strong>{job.title}</strong> is in our queue. Our team reviews
+							every submission; expect to hear back within a couple of weeks.
+						</p>
+						<Button href="/hiring" variant="ghost">Browse other roles</Button>
+					</div>
+				{:else}
+					<h2>Apply for {job.title}</h2>
+					<p class="apply__lede">
+						Tell us a bit about yourself and attach your CV. A short note about why this role
+						catches your eye goes a long way.
+					</p>
+
+					<form class="apply__form" novalidate onsubmit={handleSubmit}>
+						<div class="apply__row">
+							<label class="apply__field">
+								<span>Full name</span>
+								<input
+									type="text"
+									name="name"
+									autocomplete="name"
+									required
+									maxlength="200"
+									bind:value={name}
+									disabled={submitting}
+								/>
+							</label>
+							<label class="apply__field">
+								<span>Email</span>
+								<input
+									type="email"
+									name="email"
+									autocomplete="email"
+									required
+									maxlength="320"
+									bind:value={email}
+									disabled={submitting}
+								/>
+							</label>
+						</div>
+
+						<label class="apply__field">
+							<span>Anything you'd like us to know <em>(optional)</em></span>
+							<textarea
+								name="message"
+								rows="5"
+								maxlength="4096"
+								placeholder="Why this role, what you're working on, links to writing or code…"
+								bind:value={message}
+								disabled={submitting}
+							></textarea>
+						</label>
+
+						<div class="apply__field">
+							<span>Attachments</span>
+							<p class="apply__hint">
+								Up to {MAX_FILES} files, max 10 MB each. CV, cover letter, samples, references — anything
+								that helps us read you.
+							</p>
+							<input
+								bind:this={fileInputEl}
+								type="file"
+								name="files"
+								multiple
+								onchange={onPickFiles}
+								disabled={submitting || files.length >= MAX_FILES}
+							/>
+							{#if files.length > 0}
+								<ul class="apply__files">
+									{#each files as file, idx (`${file.name}-${file.size}-${idx}`)}
+										<li>
+											<span class="apply__file-name">{file.name}</span>
+											<span class="apply__file-size">{fmtBytes(file.size)}</span>
+											<button
+												type="button"
+												class="apply__file-remove"
+												aria-label="Remove {file.name}"
+												onclick={() => removeFile(idx)}
+												disabled={submitting}
+											>
+												Remove
+											</button>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+
+						{#if formError}
+							<div class="apply__error" role="alert">{formError}</div>
+						{/if}
+
+						<div class="apply__actions">
+							<Button type="submit" variant="primary" disabled={submitting}>
+								{submitting ? 'Sending…' : `Submit application`}
+							</Button>
+							<span class="apply__privacy">
+								We'll only use the info you share to evaluate this application.
+							</span>
+						</div>
+					</form>
+				{/if}
 			</div>
 		</div>
 	</section>
@@ -156,19 +319,156 @@
 		color: var(--text);
 	}
 
-	.job__apply-footer {
+	.apply {
 		margin-top: var(--space-8);
 		padding: var(--space-6);
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
+		scroll-margin-top: 80px;
 	}
-	.job__apply-footer h2 {
+	.apply h2 {
 		font-size: var(--text-xl);
+		margin: 0 0 var(--space-2);
+	}
+	.apply__lede {
+		color: var(--text-muted);
+		margin-bottom: var(--space-5);
+	}
+
+	.apply__form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.apply__row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-4);
+	}
+	@media (max-width: 640px) {
+		.apply__row {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.apply__field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.apply__field > span {
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--text);
+	}
+	.apply__field em {
+		font-style: normal;
+		color: var(--text-muted);
+		font-weight: 400;
+	}
+	.apply__hint {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		margin: 0;
+	}
+
+	.apply__field input[type='text'],
+	.apply__field input[type='email'],
+	.apply__field textarea {
+		font: inherit;
+		padding: 0.7rem 0.8rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm, 6px);
+		background: var(--bg);
+		color: var(--text);
+		width: 100%;
+	}
+	.apply__field input[type='text']:focus,
+	.apply__field input[type='email']:focus,
+	.apply__field textarea:focus {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
+		border-color: var(--accent);
+	}
+	.apply__field input[type='file'] {
+		font: inherit;
+		font-size: var(--text-sm);
+	}
+	.apply__field textarea {
+		resize: vertical;
+		min-height: 100px;
+	}
+
+	.apply__files {
+		list-style: none;
+		padding: 0;
+		margin: 0.5rem 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.apply__files li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: 0.5rem 0.7rem;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm, 6px);
+		font-size: var(--text-sm);
+	}
+	.apply__file-name {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.apply__file-size {
+		color: var(--text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.apply__file-remove {
+		font: inherit;
+		font-size: var(--text-sm);
+		background: transparent;
+		border: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		padding: 0.1rem 0.3rem;
+		border-radius: 4px;
+	}
+	.apply__file-remove:hover {
+		color: #b91c1c;
+	}
+
+	.apply__error {
+		padding: 0.7rem 0.9rem;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #b91c1c;
+		border-radius: var(--radius-sm, 6px);
+		font-size: var(--text-sm);
+	}
+
+	.apply__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+		align-items: center;
+		margin-top: var(--space-2);
+	}
+	.apply__privacy {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+	}
+
+	.apply__success h2 {
 		margin-bottom: var(--space-3);
 	}
-	.job__apply-footer p {
-		margin-bottom: var(--space-4);
+	.apply__success p {
 		color: var(--text-muted);
+		margin-bottom: var(--space-4);
 	}
 </style>

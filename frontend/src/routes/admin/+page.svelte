@@ -213,6 +213,11 @@
 			</div>
 		</header>
 
+		<nav class="admin__tabs" aria-label="Admin sections">
+			<a class="admin__tab admin__tab--active" href="/admin">Job postings</a>
+			<a class="admin__tab" href="/admin/applications">Applications</a>
+		</nav>
+
 		{#if mode === 'list'}
 			<div class="admin__toolbar">
 				<button type="button" class="primary" onclick={startCreate}>+ New job</button>
@@ -382,6 +387,29 @@
 	}
 	.small {
 		font-size: var(--text-sm);
+	}
+
+	.admin__tabs {
+		display: flex;
+		gap: var(--space-1);
+		border-bottom: 1px solid var(--border);
+		margin-bottom: var(--space-5);
+	}
+	.admin__tab {
+		padding: 0.55rem 1rem;
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--text-muted);
+		text-decoration: none;
+		border-bottom: 2px solid transparent;
+		margin-bottom: -1px;
+	}
+	.admin__tab:hover {
+		color: var(--accent);
+	}
+	.admin__tab--active {
+		color: var(--text);
+		border-bottom-color: var(--accent);
 	}
 
 	.admin__toolbar {

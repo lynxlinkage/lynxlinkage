@@ -19,6 +19,17 @@ type Config struct {
 	ContactRPS   float64
 	ContactBurst int
 
+	// Rate limit for the public job-application endpoint. Defaults are
+	// looser than contact since the form has a higher bar to fill in.
+	ApplicationRPS   float64
+	ApplicationBurst int
+
+	// Upload limits for application attachments.
+	UploadDir           string
+	MaxUploadFiles      int
+	MaxUploadFileBytes  int64
+	MaxUploadTotalBytes int64
+
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
@@ -72,8 +83,43 @@ func Load() (Config, error) {
 	}
 	cfg.SMTPPort = smtpPort
 
-	cfg.ReadTimeout = mustDuration(getEnv("READ_TIMEOUT", "10s"))
-	cfg.WriteTimeout = mustDuration(getEnv("WRITE_TIMEOUT", "15s"))
+	appRPS, err := strconv.ParseFloat(getEnv("APPLICATION_RPS", "0.1"), 64)
+	if err != nil {
+		return cfg, fmt.Errorf("invalid APPLICATION_RPS: %w", err)
+	}
+	cfg.ApplicationRPS = appRPS
+	appBurst, err := strconv.Atoi(getEnv("APPLICATION_BURST", "3"))
+	if err != nil {
+		return cfg, fmt.Errorf("invalid APPLICATION_BURST: %w", err)
+	}
+	cfg.ApplicationBurst = appBurst
+
+	cfg.UploadDir = getEnv("UPLOAD_DIR", "./data/uploads")
+
+	maxFiles, err := strconv.Atoi(getEnv("MAX_UPLOAD_FILES", "3"))
+	if err != nil {
+		return cfg, fmt.Errorf("invalid MAX_UPLOAD_FILES: %w", err)
+	}
+	cfg.MaxUploadFiles = maxFiles
+
+	perFile, err := strconv.ParseInt(getEnv("MAX_UPLOAD_FILE_BYTES", "10485760"), 10, 64) // 10 MiB
+	if err != nil {
+		return cfg, fmt.Errorf("invalid MAX_UPLOAD_FILE_BYTES: %w", err)
+	}
+	cfg.MaxUploadFileBytes = perFile
+
+	totalDefault := strconv.FormatInt(int64(cfg.MaxUploadFiles)*cfg.MaxUploadFileBytes+(2<<20), 10)
+	totalCap, err := strconv.ParseInt(getEnv("MAX_UPLOAD_TOTAL_BYTES", totalDefault), 10, 64)
+	if err != nil {
+		return cfg, fmt.Errorf("invalid MAX_UPLOAD_TOTAL_BYTES: %w", err)
+	}
+	cfg.MaxUploadTotalBytes = totalCap
+
+	// Defaults bumped from 10s/15s so multi-MB uploads on slow client
+	// connections don't get cut mid-stream. Operators can lower for tiny
+	// JSON-only deployments.
+	cfg.ReadTimeout = mustDuration(getEnv("READ_TIMEOUT", "60s"))
+	cfg.WriteTimeout = mustDuration(getEnv("WRITE_TIMEOUT", "60s"))
 	cfg.IdleTimeout = mustDuration(getEnv("IDLE_TIMEOUT", "60s"))
 
 	cfg.SessionSecret = getEnv("SESSION_SECRET", "")
