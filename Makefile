@@ -13,7 +13,7 @@ help:
 	@echo "  make dev             Run backend + frontend dev servers in parallel"
 	@echo "  make backend         Run only the Go server (with air if available)"
 	@echo "  make frontend        Run only the SvelteKit dev server"
-	@echo "  make seed            Load backend/seed/*.yaml into the SQLite database"
+	@echo "  make seed            Load backend/seed/*.yaml into the PostgreSQL database"
 	@echo "  make build           Build production binary with the frontend embedded"
 	@echo "  make run             Run the embedded production binary"
 	@echo "  make test            Run backend tests"

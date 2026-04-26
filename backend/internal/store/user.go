@@ -19,7 +19,7 @@ const userColumns = `id, email, password_hash, role, created_at, last_login_at`
 // GetByEmail returns the user with the given (case-insensitive) email or
 // sql.ErrNoRows when not found.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	q := `SELECT ` + userColumns + ` FROM users WHERE email = ?`
+	q := `SELECT ` + userColumns + ` FROM users WHERE email = $1`
 	var u domain.User
 	if err := r.db.GetContext(ctx, &u, q, strings.ToLower(strings.TrimSpace(email))); err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 
 // GetByID returns the user with the given id or sql.ErrNoRows.
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*domain.User, error) {
-	q := `SELECT ` + userColumns + ` FROM users WHERE id = ?`
+	q := `SELECT ` + userColumns + ` FROM users WHERE id = $1`
 	var u domain.User
 	if err := r.db.GetContext(ctx, &u, q, id); err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*domain.User, error) 
 // not block a successful authentication.
 func (r *UserRepo) TouchLogin(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE users SET last_login_at = ? WHERE id = ?`,
+		`UPDATE users SET last_login_at = $1 WHERE id = $2`,
 		time.Now().UTC(), id)
 	return err
 }
@@ -52,23 +52,24 @@ func (r *UserRepo) TouchLogin(ctx context.Context, id int64) error {
 func (r *UserRepo) Create(ctx context.Context, email, passwordHash string, role domain.Role) (int64, error) {
 	const q = `
         INSERT INTO users (email, password_hash, role)
-        VALUES (?, ?, ?)
+        VALUES ($1, $2, $3)
+        RETURNING id
     `
-	res, err := r.db.ExecContext(ctx, q,
+	var id int64
+	if err := r.db.QueryRowxContext(ctx, q,
 		strings.ToLower(strings.TrimSpace(email)),
 		passwordHash,
 		string(role),
-	)
-	if err != nil {
+	).Scan(&id); err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 // UpdatePassword replaces the bcrypt hash for a user.
 func (r *UserRepo) UpdatePassword(ctx context.Context, id int64, passwordHash string) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE users SET password_hash = ? WHERE id = ?`,
+		`UPDATE users SET password_hash = $1 WHERE id = $2`,
 		passwordHash, id)
 	return err
 }

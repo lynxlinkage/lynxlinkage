@@ -8,9 +8,21 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
 )
+
+// isUniqueViolation reports whether err is a Postgres "23505 unique
+// violation" error. The status repo wraps a few of these as 409s so HR
+// sees a friendly conflict message rather than a generic 500.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}
 
 type statusUpsertRequest struct {
 	Slug         string `json:"slug"          validate:"omitempty,max=80"`
@@ -79,9 +91,7 @@ func (s *Server) handleAdminCreateStatus(c *gin.Context) {
 		IsDefault:    isDefault,
 	}
 	if _, err := s.Statuses.Create(c.Request.Context(), status); err != nil {
-		// SQLite returns "constraint failed: UNIQUE" — surface the slug
-		// conflict to HR rather than a generic 500.
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			c.JSON(http.StatusConflict, gin.H{"error": "a status with that slug already exists"})
 			return
 		}
@@ -138,7 +148,7 @@ func (s *Server) handleAdminUpdateStatus(c *gin.Context) {
 		case store.IsNoRows(err) || errors.Is(err, store.ErrNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
-		case strings.Contains(err.Error(), "UNIQUE"):
+		case isUniqueViolation(err):
 			c.JSON(http.StatusConflict, gin.H{"error": "a status with that slug already exists"})
 			return
 		}

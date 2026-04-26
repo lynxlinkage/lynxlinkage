@@ -22,7 +22,7 @@ const jobColumns = `id, title, team, location, employment_type, description_md,
 func (r *JobRepo) ListActive(ctx context.Context) ([]domain.JobPosting, error) {
 	q := `SELECT ` + jobColumns + `
         FROM job_postings
-        WHERE is_active = 1
+        WHERE is_active = TRUE
         ORDER BY posted_at DESC, id DESC`
 	out := []domain.JobPosting{}
 	if err := r.db.SelectContext(ctx, &out, q); err != nil {
@@ -55,18 +55,15 @@ func (r *JobRepo) Create(ctx context.Context, j *domain.JobPosting, actorID *int
             (title, team, location, employment_type, description_md,
              apply_url_or_email, posted_at, is_active,
              created_at, updated_at, created_by, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING id
     `
-	res, err := r.db.ExecContext(ctx, q,
+	var id int64
+	if err := r.db.QueryRowxContext(ctx, q,
 		j.Title, j.Team, j.Location, string(j.EmploymentType),
 		j.DescriptionMD, j.ApplyURLOrEmail, j.PostedAt, j.IsActive,
 		now, now, actorID, actorID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
+	).Scan(&id); err != nil {
 		return 0, err
 	}
 	j.ID = id
@@ -80,7 +77,7 @@ func (r *JobRepo) Create(ctx context.Context, j *domain.JobPosting, actorID *int
 // Delete removes a posting permanently. Returns ErrNotFound when the id
 // does not exist.
 func (r *JobRepo) Delete(ctx context.Context, id int64) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM job_postings WHERE id = ?`, id)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM job_postings WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -101,11 +98,11 @@ func (r *JobRepo) Update(ctx context.Context, j *domain.JobPosting, actorID *int
 	now := time.Now().UTC()
 	const q = `
         UPDATE job_postings SET
-            title = ?, team = ?, location = ?, employment_type = ?,
-            description_md = ?, apply_url_or_email = ?, posted_at = ?,
-            is_active = ?,
-            updated_at = ?, updated_by = ?
-        WHERE id = ?
+            title = $1, team = $2, location = $3, employment_type = $4,
+            description_md = $5, apply_url_or_email = $6, posted_at = $7,
+            is_active = $8,
+            updated_at = $9, updated_by = $10
+        WHERE id = $11
     `
 	res, err := r.db.ExecContext(ctx, q,
 		j.Title, j.Team, j.Location, string(j.EmploymentType),
@@ -130,7 +127,7 @@ func (r *JobRepo) Update(ctx context.Context, j *domain.JobPosting, actorID *int
 
 // Get returns a single posting by ID, regardless of active status.
 func (r *JobRepo) Get(ctx context.Context, id int64) (*domain.JobPosting, error) {
-	q := `SELECT ` + jobColumns + ` FROM job_postings WHERE id = ?`
+	q := `SELECT ` + jobColumns + ` FROM job_postings WHERE id = $1`
 	var j domain.JobPosting
 	if err := r.db.GetContext(ctx, &j, q, id); err != nil {
 		return nil, err
@@ -162,6 +159,17 @@ func (r *JobRepo) Upsert(ctx context.Context, j *domain.JobPosting) error {
             is_active=excluded.is_active,
             updated_at=excluded.posted_at
     `
-	_, err := r.db.NamedExecContext(ctx, q, j)
+	if _, err := r.db.NamedExecContext(ctx, q, j); err != nil {
+		return err
+	}
+	// BIGSERIAL sequences are not advanced by manual id inserts, so
+	// realign the sequence after seeding to avoid duplicate-key errors
+	// the next time a posting is created via Create.
+	_, err := r.db.ExecContext(ctx, `
+        SELECT setval(
+            pg_get_serial_sequence('job_postings', 'id'),
+            COALESCE((SELECT MAX(id) FROM job_postings), 1),
+            true)
+    `)
 	return err
 }

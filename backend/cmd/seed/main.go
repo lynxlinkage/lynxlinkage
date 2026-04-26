@@ -81,9 +81,6 @@ func run(dir string, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(strings.TrimPrefix(strings.SplitN(cfg.DatabaseURL, "?", 2)[0], "file:")), 0o755); err != nil {
-		return err
-	}
 
 	ctx := context.Background()
 	db, err := store.Open(ctx, cfg.DatabaseURL, logger)

@@ -2,9 +2,9 @@
 
 A monorepo containing the lynxlinkage marketing site.
 
-- `backend/` — Go 1.22+ + Gin, SQLite via `modernc.org/sqlite` (pure Go, no CGO),
-  serves `/api/v1/*` and (when built with `-tags=embed`) the prerendered
-  SvelteKit frontend on every other path.
+- `backend/` — Go 1.25+ + Gin, PostgreSQL via `jackc/pgx/v5` (pure Go,
+  no CGO), serves `/api/v1/*` and (when built with `-tags=embed`) the
+  prerendered SvelteKit frontend on every other path.
 - `frontend/` — SvelteKit 2 + Svelte 5 (runes), TypeScript, `adapter-static`.
   Pages are prerendered to static HTML at build time.
 
@@ -18,7 +18,8 @@ cd backend && go mod download && cd ..
 cd frontend && pnpm install   # or `npm install`
 cd ..
 
-# 3. Seed initial content into SQLite
+# 3. Point DATABASE_URL at a running PostgreSQL instance and seed content
+export DATABASE_URL="postgresql://user:pass@localhost:5432/lynxlinkage?sslmode=disable"
 make seed
 
 # 4. Run backend and frontend dev servers in parallel
@@ -39,8 +40,9 @@ The production binary contains:
 
 - The SvelteKit static export (under `backend/internal/static/dist/`,
   embedded via `//go:embed`).
-- All API handlers and the SQLite driver. SQLite uses a file at
-  `./data/lynxlinkage.db` by default; override with `DATABASE_URL`.
+- All API handlers and the PostgreSQL driver. The server reads
+  `DATABASE_URL` (a libpq-style connection URL) and runs the embedded
+  schema migrations on startup.
 
 ## Project structure
 
@@ -176,7 +178,8 @@ The most relevant ones:
 
 - `APP_ENV` — `development` or `production`
 - `HTTP_ADDR` — listen address (default `:8080`)
-- `DATABASE_URL` — SQLite DSN (default `file:./data/lynxlinkage.db?...`)
+- `DATABASE_URL` — PostgreSQL connection URL (e.g.
+  `postgresql://user:pass@host:5432/lynxlinkage?sslmode=disable`)
 - `CORS_ALLOW_ORIGIN` — comma-separated origins (default `http://localhost:5173`)
 - `CONTACT_RPS` / `CONTACT_BURST` — per-IP rate limit on the contact endpoint
 - `APPLICATION_RPS` / `APPLICATION_BURST` — per-IP rate limit on the
@@ -195,9 +198,9 @@ during prerender to point load functions at the backend.
   `make build` on the host. The contact form is the only runtime call.
 - **One binary.** In production the Go server serves both the static frontend
   and the API on the same origin; no CORS, no separate frontend host.
-- **Lean store.** SQLite is sufficient for the scale of a marketing site.
-  The `store/` package is small and behind interfaces, so swapping in
-  Postgres is mostly a wiring change.
+- **Lean store.** PostgreSQL backs the application; the `store/` package
+  is small and uses `sqlx` repositories so most queries are
+  straightforward SQL with named parameters.
 - **Style.** Vanilla CSS with design tokens (no Tailwind). Single navy
   accent, generous whitespace, scoped Svelte styles.
 

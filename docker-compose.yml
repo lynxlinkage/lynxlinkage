@@ -7,16 +7,38 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - app-data:/data
+      - app-uploads:/data
     environment:
       APP_ENV: production
       HTTP_ADDR: :8080
       LOG_LEVEL: info
-      DATABASE_URL: "file:/data/lynxlinkage.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
+      # Override DATABASE_URL via an .env file or compose override to
+      # point at your PostgreSQL instance.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://lynxlinkage:lynxlinkage@db:5432/lynxlinkage?sslmode=disable}
       CORS_ALLOW_ORIGIN: "https://lynxlinkage.com"
       CONTACT_RPS: "0.2"
       CONTACT_BURST: "3"
+      UPLOAD_DIR: /data/uploads
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lynxlinkage
+      POSTGRES_PASSWORD: lynxlinkage
+      POSTGRES_DB: lynxlinkage
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lynxlinkage -d lynxlinkage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:
-  app-data:
+  app-uploads:
+  db-data:

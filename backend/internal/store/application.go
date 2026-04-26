@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -89,17 +90,14 @@ func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application, def
             job_id, name, email, message, ip_address, user_agent,
             status_id, status_updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+        RETURNING id
     `
-	res, err := r.db.ExecContext(ctx, q,
+	var id int64
+	if err := r.db.QueryRowxContext(ctx, q,
 		a.JobID, a.Name, a.Email, a.Message, a.IPAddress, a.UserAgent,
 		a.StatusID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
+	).Scan(&id); err != nil {
 		return 0, err
 	}
 	a.ID = id
@@ -109,7 +107,7 @@ func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application, def
 	if defaultStatusID > 0 {
 		if _, err := r.db.ExecContext(ctx, `
             INSERT INTO application_status_events (application_id, from_status_id, to_status_id, actor_id, note)
-            VALUES (?, NULL, ?, NULL, 'submitted')
+            VALUES ($1, NULL, $2, NULL, 'submitted')
         `, id, defaultStatusID); err != nil {
 			return 0, fmt.Errorf("seed status event: %w", err)
 		}
@@ -122,16 +120,13 @@ func (r *ApplicationRepo) AddFile(ctx context.Context, f *domain.ApplicationFile
 	const q = `
         INSERT INTO application_files
             (application_id, original_name, stored_path, content_type, size_bytes)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
     `
-	res, err := r.db.ExecContext(ctx, q,
+	var id int64
+	if err := r.db.QueryRowxContext(ctx, q,
 		f.ApplicationID, f.OriginalName, f.StoredPath, f.ContentType, f.SizeBytes,
-	)
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
+	).Scan(&id); err != nil {
 		return 0, err
 	}
 	f.ID = id
@@ -142,7 +137,7 @@ func (r *ApplicationRepo) AddFile(ctx context.Context, f *domain.ApplicationFile
 // Bytes on disk must be removed by the caller — this repo doesn't know
 // about UPLOAD_DIR.
 func (r *ApplicationRepo) Delete(ctx context.Context, id int64) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM applications WHERE id = ?`, id)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM applications WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -177,13 +172,15 @@ func (r *ApplicationRepo) List(ctx context.Context, f ListFilter) ([]domain.Appl
 		where []string
 		args  []any
 	)
+	next := func(v any) string {
+		args = append(args, v)
+		return "$" + strconv.Itoa(len(args))
+	}
 	if f.JobID > 0 {
-		where = append(where, "a.job_id = ?")
-		args = append(args, f.JobID)
+		where = append(where, "a.job_id = "+next(f.JobID))
 	}
 	if f.StatusID > 0 {
-		where = append(where, "a.status_id = ?")
-		args = append(args, f.StatusID)
+		where = append(where, "a.status_id = "+next(f.StatusID))
 	}
 
 	q := applicationSelect
@@ -196,8 +193,7 @@ func (r *ApplicationRepo) List(ctx context.Context, f ListFilter) ([]domain.Appl
 	} else {
 		q += ` ORDER BY a.created_at DESC, a.id DESC `
 	}
-	q += ` LIMIT ? `
-	args = append(args, limit)
+	q += ` LIMIT ` + next(limit)
 
 	rows := []applicationRow{}
 	if err := r.db.SelectContext(ctx, &rows, q, args...); err != nil {
@@ -213,7 +209,7 @@ func (r *ApplicationRepo) List(ctx context.Context, f ListFilter) ([]domain.Appl
 // Get returns a single application with the joined status. Files and
 // history are loaded separately by the caller.
 func (r *ApplicationRepo) Get(ctx context.Context, id int64) (*domain.Application, error) {
-	q := applicationSelect + ` WHERE a.id = ?`
+	q := applicationSelect + ` WHERE a.id = $1`
 	var row applicationRow
 	if err := r.db.GetContext(ctx, &row, q, id); err != nil {
 		return nil, err
@@ -227,7 +223,7 @@ func (r *ApplicationRepo) ListFiles(ctx context.Context, applicationID int64) ([
 	const q = `
         SELECT id, application_id, original_name, stored_path, content_type, size_bytes, created_at
         FROM application_files
-        WHERE application_id = ?
+        WHERE application_id = $1
         ORDER BY id ASC
     `
 	out := []domain.ApplicationFile{}
@@ -242,7 +238,7 @@ func (r *ApplicationRepo) GetFile(ctx context.Context, id int64) (*domain.Applic
 	const q = `
         SELECT id, application_id, original_name, stored_path, content_type, size_bytes, created_at
         FROM application_files
-        WHERE id = ?
+        WHERE id = $1
     `
 	var f domain.ApplicationFile
 	if err := r.db.GetContext(ctx, &f, q, id); err != nil {
@@ -272,7 +268,7 @@ func (r *ApplicationRepo) UpdateStatus(
 			StatusID *int64 `db:"status_id"`
 		}
 		if err := tx.GetContext(ctx, &current,
-			`SELECT status_id FROM applications WHERE id = ?`, applicationID); err != nil {
+			`SELECT status_id FROM applications WHERE id = $1`, applicationID); err != nil {
 			return err
 		}
 		if current.StatusID != nil && *current.StatusID == newStatusID {
@@ -281,7 +277,7 @@ func (r *ApplicationRepo) UpdateStatus(
 
 		var exists int
 		if err := tx.GetContext(ctx, &exists,
-			`SELECT COUNT(*) FROM application_statuses WHERE id = ?`, newStatusID); err != nil {
+			`SELECT COUNT(*) FROM application_statuses WHERE id = $1`, newStatusID); err != nil {
 			return err
 		}
 		if exists == 0 {
@@ -290,23 +286,23 @@ func (r *ApplicationRepo) UpdateStatus(
 
 		if _, err := tx.ExecContext(ctx, `
             UPDATE applications
-               SET status_id          = ?,
+               SET status_id          = $1,
                    status_updated_at  = CURRENT_TIMESTAMP,
-                   status_updated_by  = ?
-             WHERE id = ?
+                   status_updated_by  = $2
+             WHERE id = $3
         `, newStatusID, actorID, applicationID); err != nil {
 			return err
 		}
 
-		res, err := tx.ExecContext(ctx, `
+		var eventID int64
+		if err := tx.QueryRowxContext(ctx, `
             INSERT INTO application_status_events
                 (application_id, from_status_id, to_status_id, actor_id, note)
-            VALUES (?, ?, ?, ?, ?)
-        `, applicationID, current.StatusID, newStatusID, actorID, note)
-		if err != nil {
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+        `, applicationID, current.StatusID, newStatusID, actorID, note).Scan(&eventID); err != nil {
 			return err
 		}
-		eventID, _ := res.LastInsertId()
 		event = &domain.ApplicationStatusEvent{
 			ID:            eventID,
 			ApplicationID: applicationID,
@@ -336,7 +332,7 @@ func (r *ApplicationRepo) ListEvents(ctx context.Context, applicationID int64) (
         LEFT JOIN application_statuses fs ON fs.id = e.from_status_id
         LEFT JOIN application_statuses ts ON ts.id = e.to_status_id
         LEFT JOIN users u                 ON u.id = e.actor_id
-        WHERE e.application_id = ?
+        WHERE e.application_id = $1
         ORDER BY e.created_at ASC, e.id ASC
     `
 	out := []domain.ApplicationStatusEvent{}

@@ -19,10 +19,21 @@ func (r *ContactRepo) Insert(ctx context.Context, s *domain.ContactSubmission) (
             (name, email, company, message, kind, ip_address, user_agent)
         VALUES
             (:name, :email, :company, :message, :kind, :ip_address, :user_agent)
+        RETURNING id
     `
-	res, err := r.db.NamedExecContext(ctx, q, s)
+	rows, err := r.db.NamedQueryContext(ctx, q, s)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	defer rows.Close()
+	var id int64
+	if rows.Next() {
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return id, nil
 }

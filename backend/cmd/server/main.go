@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -44,10 +43,6 @@ func run() error {
 
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
-	}
-
-	if err := ensureSQLiteDir(cfg.DatabaseURL); err != nil {
-		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -145,19 +140,3 @@ func newLogger(cfg config.Config) *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, opts))
 }
 
-// ensureSQLiteDir creates the parent directory of a SQLite DSN like
-// "file:./data/foo.db?...". It's a no-op for in-memory or non-file DSNs.
-func ensureSQLiteDir(dsn string) error {
-	const prefix = "file:"
-	if !strings.HasPrefix(dsn, prefix) {
-		return nil
-	}
-	rest := strings.TrimPrefix(dsn, prefix)
-	if i := strings.IndexByte(rest, '?'); i >= 0 {
-		rest = rest[:i]
-	}
-	if rest == "" || rest == ":memory:" {
-		return nil
-	}
-	return os.MkdirAll(filepath.Dir(rest), 0o755)
-}

@@ -40,7 +40,7 @@ func (r *StatusRepo) List(ctx context.Context) ([]domain.ApplicationStatus, erro
 
 func (r *StatusRepo) Get(ctx context.Context, id int64) (*domain.ApplicationStatus, error) {
 	var s domain.ApplicationStatus
-	q := `SELECT ` + statusColumns + ` FROM application_statuses WHERE id = ?`
+	q := `SELECT ` + statusColumns + ` FROM application_statuses WHERE id = $1`
 	if err := r.db.GetContext(ctx, &s, q, id); err != nil {
 		return nil, err
 	}
@@ -49,14 +49,14 @@ func (r *StatusRepo) Get(ctx context.Context, id int64) (*domain.ApplicationStat
 
 func (r *StatusRepo) GetBySlug(ctx context.Context, slug string) (*domain.ApplicationStatus, error) {
 	var s domain.ApplicationStatus
-	q := `SELECT ` + statusColumns + ` FROM application_statuses WHERE slug = ?`
+	q := `SELECT ` + statusColumns + ` FROM application_statuses WHERE slug = $1`
 	if err := r.db.GetContext(ctx, &s, q, slug); err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-// GetDefault returns the row currently marked is_default = 1. If for
+// GetDefault returns the row currently marked is_default = TRUE. If for
 // some reason no row carries the flag (HR may have edited carelessly),
 // it falls back to the lowest display_order so the system can still
 // label new applications.
@@ -65,7 +65,7 @@ func (r *StatusRepo) GetDefault(ctx context.Context) (*domain.ApplicationStatus,
 	q := `
         SELECT ` + statusColumns + `
         FROM application_statuses
-        WHERE is_default = 1
+        WHERE is_default = TRUE
         LIMIT 1
     `
 	err := r.db.GetContext(ctx, &s, q)
@@ -97,19 +97,15 @@ func (r *StatusRepo) Create(ctx context.Context, s *domain.ApplicationStatus) (i
 	err := withTx(ctx, r.db, func(tx *sqlx.Tx) error {
 		if s.IsDefault {
 			if _, err := tx.ExecContext(ctx,
-				`UPDATE application_statuses SET is_default = 0 WHERE is_default = 1`); err != nil {
+				`UPDATE application_statuses SET is_default = FALSE WHERE is_default = TRUE`); err != nil {
 				return err
 			}
 		}
-		res, err := tx.ExecContext(ctx, `
+		return tx.QueryRowxContext(ctx, `
             INSERT INTO application_statuses (slug, name, kind, color, display_order, is_default)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-			s.Slug, s.Name, s.Kind, s.Color, s.DisplayOrder, s.IsDefault)
-		if err != nil {
-			return err
-		}
-		id, err = res.LastInsertId()
-		return err
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id`,
+			s.Slug, s.Name, s.Kind, s.Color, s.DisplayOrder, s.IsDefault).Scan(&id)
 	})
 	if err != nil {
 		return 0, err
@@ -125,14 +121,14 @@ func (r *StatusRepo) Update(ctx context.Context, s *domain.ApplicationStatus) er
 	return withTx(ctx, r.db, func(tx *sqlx.Tx) error {
 		if s.IsDefault {
 			if _, err := tx.ExecContext(ctx,
-				`UPDATE application_statuses SET is_default = 0 WHERE is_default = 1 AND id <> ?`,
+				`UPDATE application_statuses SET is_default = FALSE WHERE is_default = TRUE AND id <> $1`,
 				s.ID); err != nil {
 				return err
 			}
 		} else {
 			var n int
 			if err := tx.GetContext(ctx, &n,
-				`SELECT COUNT(*) FROM application_statuses WHERE is_default = 1 AND id <> ?`,
+				`SELECT COUNT(*) FROM application_statuses WHERE is_default = TRUE AND id <> $1`,
 				s.ID); err != nil {
 				return err
 			}
@@ -144,13 +140,13 @@ func (r *StatusRepo) Update(ctx context.Context, s *domain.ApplicationStatus) er
 		}
 		res, err := tx.ExecContext(ctx, `
             UPDATE application_statuses
-               SET slug          = ?,
-                   name          = ?,
-                   kind          = ?,
-                   color         = ?,
-                   display_order = ?,
-                   is_default    = ?
-             WHERE id = ?`,
+               SET slug          = $1,
+                   name          = $2,
+                   kind          = $3,
+                   color         = $4,
+                   display_order = $5,
+                   is_default    = $6
+             WHERE id = $7`,
 			s.Slug, s.Name, s.Kind, s.Color, s.DisplayOrder, s.IsDefault, s.ID)
 		if err != nil {
 			return err
@@ -172,15 +168,15 @@ func (r *StatusRepo) Delete(ctx context.Context, id int64) error {
 	var inUse int
 	if err := r.db.GetContext(ctx, &inUse, `
         SELECT
-            (SELECT COUNT(*) FROM applications WHERE status_id = ?)
-          + (SELECT COUNT(*) FROM application_status_events WHERE to_status_id = ? OR from_status_id = ?)
-    `, id, id, id); err != nil {
+            (SELECT COUNT(*) FROM applications WHERE status_id = $1)
+          + (SELECT COUNT(*) FROM application_status_events WHERE to_status_id = $1 OR from_status_id = $1)
+    `, id); err != nil {
 		return err
 	}
 	if inUse > 0 {
 		return fmt.Errorf("%w: %d row(s) reference status %d", ErrStatusInUse, inUse, id)
 	}
-	res, err := r.db.ExecContext(ctx, `DELETE FROM application_statuses WHERE id = ?`, id)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM application_statuses WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}

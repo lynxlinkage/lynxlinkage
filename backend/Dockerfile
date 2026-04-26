@@ -17,7 +17,7 @@ COPY frontend/ .
 RUN if [ -f pnpm-lock.yaml ]; then pnpm build; else npm run build; fi
 
 # ---- Stage 2: build the Go backend with embedded frontend ----
-FROM golang:1.22-alpine AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
 RUN apk add --no-cache make
 WORKDIR /src
 
@@ -37,8 +37,6 @@ WORKDIR /app
 COPY --from=backend-builder /out/lynxlinkage /app/lynxlinkage
 
 USER app
-ENV APP_ENV=production HTTP_ADDR=:8080 \
-    DATABASE_URL="file:/data/lynxlinkage.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
-VOLUME ["/data"]
+ENV APP_ENV=production HTTP_ADDR=:8080
 EXPOSE 8080
 ENTRYPOINT ["/app/lynxlinkage"]

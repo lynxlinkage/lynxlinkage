@@ -3,8 +3,11 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds runtime configuration loaded from environment variables.
@@ -50,12 +53,17 @@ type Config struct {
 }
 
 // Load reads configuration from environment variables, applying defaults
-// suitable for local development.
+// suitable for local development. A `.env` file in the working directory
+// (or in `backend/`) is loaded transparently if present so dev workflows
+// don't need to source it manually; existing environment variables
+// always take precedence.
 func Load() (Config, error) {
+	loadDotenv()
+
 	cfg := Config{
 		Env:             getEnv("APP_ENV", "development"),
 		HTTPAddr:        getEnv("HTTP_ADDR", ":8080"),
-		DatabaseURL:     getEnv("DATABASE_URL", "file:./data/lynxlinkage.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"),
+		DatabaseURL:     getEnv("DATABASE_URL", "postgresql://lynxlinkage:lynxlinkage@localhost:5432/lynxlinkage?sslmode=disable"),
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
 		CORSAllowOrigin: getEnv("CORS_ALLOW_ORIGIN", "http://localhost:5173"),
 		EmailFrom:       getEnv("EMAIL_FROM", ""),
@@ -141,6 +149,25 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// loadDotenv walks up from the current working directory looking for a
+// `.env` file (or `backend/.env`) and loads it into the environment.
+// Variables that are already exported in the shell win over the file,
+// matching the behaviour of `godotenv.Load` itself.
+func loadDotenv() {
+	candidates := []string{
+		".env",
+		filepath.Join("backend", ".env"),
+		filepath.Join("..", ".env"),
+		filepath.Join("..", "backend", ".env"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			_ = godotenv.Load(p)
+			return
+		}
+	}
 }
 
 func mustDuration(s string) time.Duration {

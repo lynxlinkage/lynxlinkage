@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -69,9 +68,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := ensureSQLiteDir(cfg.DatabaseURL); err != nil {
-		return err
-	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	ctx := context.Background()
@@ -119,17 +115,3 @@ func readPassword() (string, error) {
 	return string(bytePass), nil
 }
 
-func ensureSQLiteDir(dsn string) error {
-	const prefix = "file:"
-	if !strings.HasPrefix(dsn, prefix) {
-		return nil
-	}
-	rest := strings.TrimPrefix(dsn, prefix)
-	if i := strings.IndexByte(rest, '?'); i >= 0 {
-		rest = rest[:i]
-	}
-	if rest == "" || rest == ":memory:" {
-		return nil
-	}
-	return os.MkdirAll(filepath.Dir(rest), 0o755)
-}
