@@ -31,6 +31,11 @@ type Config struct {
 	SMTPPort  int
 	SMTPUser  string
 	SMTPPass  string
+
+	// SessionSecret signs the HMAC of session cookies. Rotating this value
+	// invalidates every outstanding session.
+	SessionSecret string
+	SessionTTL    time.Duration
 }
 
 // Load reads configuration from environment variables, applying defaults
@@ -70,6 +75,17 @@ func Load() (Config, error) {
 	cfg.ReadTimeout = mustDuration(getEnv("READ_TIMEOUT", "10s"))
 	cfg.WriteTimeout = mustDuration(getEnv("WRITE_TIMEOUT", "15s"))
 	cfg.IdleTimeout = mustDuration(getEnv("IDLE_TIMEOUT", "60s"))
+
+	cfg.SessionSecret = getEnv("SESSION_SECRET", "")
+	if cfg.SessionSecret == "" {
+		if cfg.Env == "production" {
+			return cfg, fmt.Errorf("SESSION_SECRET must be set in production")
+		}
+		// Stable but obviously-non-secret default for local development so
+		// developers don't have to fish a value out of an .env on first run.
+		cfg.SessionSecret = "dev-only-not-secret-change-me"
+	}
+	cfg.SessionTTL = mustDuration(getEnv("SESSION_TTL", "168h"))
 
 	return cfg, nil
 }

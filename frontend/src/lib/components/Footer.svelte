@@ -21,13 +21,6 @@
 					{/each}
 				</ul>
 			</div>
-			<div class="footer__col">
-				<h4>Connect</h4>
-				<ul>
-					<li><a href={`mailto:${site.contactEmail}`}>{site.contactEmail}</a></li>
-					<li><a href={`mailto:${site.careersEmail}`}>{site.careersEmail}</a></li>
-				</ul>
-			</div>
 		</nav>
 	</div>
 
@@ -47,7 +40,7 @@
 
 	.footer__inner {
 		display: grid;
-		grid-template-columns: 1.4fr 1fr 1fr;
+		grid-template-columns: 1.4fr 1fr;
 		gap: var(--space-8);
 		margin-bottom: var(--space-8);
 	}

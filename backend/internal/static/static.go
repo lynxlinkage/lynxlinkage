@@ -46,11 +46,16 @@ func Handler(fsys fs.FS) gin.HandlerFunc {
 
 		if !fileExists(fsys, urlPath) {
 			// Try /<path>.html for SvelteKit's prerendered routes.
-			if fileExists(fsys, urlPath+".html") {
+			switch {
+			case fileExists(fsys, urlPath+".html"):
 				urlPath = urlPath + ".html"
-			} else if fileExists(fsys, path.Join(urlPath, "index.html")) {
+			case fileExists(fsys, path.Join(urlPath, "index.html")):
 				urlPath = path.Join(urlPath, "index.html")
-			} else {
+			case fileExists(fsys, "200.html"):
+				// SPA fallback emitted by adapter-static for non-prerendered
+				// routes such as /admin and /login.
+				urlPath = "200.html"
+			default:
 				urlPath = "index.html"
 			}
 		}

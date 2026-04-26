@@ -21,7 +21,7 @@
 <Hero
 	eyebrow="Trading firm"
 	title="Statistical arbitrage in crypto markets."
-	subtitle="We are a small team of researchers and engineers building systematic stat-arb strategies for digital-asset markets &mdash; cross-venue, basis, funding, and cointegrated pairs. We publish what we learn, hire technically deep people, and partner with the venues we depend on."
+	subtitle="We are a agile team of researchers and engineers building systematic stat-arb strategies for digital-asset markets &mdash; cross-venue, basis, funding, and cointegrated pairs. We publish what we learn, hire technically deep people, and partner with the venues we depend on."
 >
 	{#snippet cta()}
 		<Button href="/researches" variant="primary" size="lg">Read our research</Button>
@@ -33,7 +33,7 @@
 	<div class="container">
 		<div class="section-heading">
 			<span class="eyebrow">About us</span>
-			<h2>A small team going deep on crypto statistical arbitrage.</h2>
+			<h2>A agile team going deep on crypto statistical arbitrage.</h2>
 			<p>
 				{site.name} is a research-led trading firm. We model price discovery in fragmented crypto
 				markets &mdash; across venues, between spot and derivatives, and across cointegrated

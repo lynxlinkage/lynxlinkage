@@ -8,7 +8,10 @@ const config = {
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
-			fallback: 'index.html',
+			// SPA shell for routes that opt out of prerender (e.g. /admin, /login).
+			// Kept distinct from index.html so the prerendered home page isn't
+			// overwritten.
+			fallback: '200.html',
 			precompress: false,
 			strict: true
 		}),

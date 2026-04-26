@@ -1,4 +1,4 @@
-.PHONY: help install install-frontend install-backend sync dev backend frontend seed build build-frontend build-backend run clean test lint check fmt
+.PHONY: help install install-frontend install-backend sync dev backend frontend seed createuser build build-frontend build-backend run clean test lint check fmt
 
 PKG_MGR ?= $(shell command -v pnpm 2>/dev/null || command -v npm)
 BACKEND_DIR := backend
@@ -53,6 +53,12 @@ frontend: sync
 
 seed:
 	cd $(BACKEND_DIR) && go run ./cmd/seed -dir ./seed
+
+# Create an HR user. Pass arguments via EMAIL=... PASSWORD=... or omit
+# PASSWORD to be prompted on stdin.
+createuser:
+	@if [ -z "$(EMAIL)" ]; then echo "usage: make createuser EMAIL=hr@example.com [PASSWORD=...]"; exit 2; fi
+	@cd $(BACKEND_DIR) && go run ./cmd/createuser -email "$(EMAIL)" $(if $(PASSWORD),-password "$(PASSWORD)",)
 
 build: build-frontend build-backend
 

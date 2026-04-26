@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import type { PartnerTier } from '$lib/api/types';
+	import type { Partner, PartnerTier } from '$lib/api/types';
 	import Hero from '$lib/components/Hero.svelte';
 	import LogoWall from '$lib/components/LogoWall.svelte';
 	import Seo from '$lib/components/Seo.svelte';
@@ -15,13 +15,16 @@
 	const TIER_ORDER: PartnerTier[] = ['strategic', 'exchange', 'broker', 'tech'];
 
 	const grouped = $derived.by(() => {
-		const buckets: Partial<Record<PartnerTier, typeof data.partners>> = {};
+		const buckets: Partial<Record<PartnerTier, Partner[]>> = {};
 		for (const p of data.partners) {
-			(buckets[p.tier] ??= []).push(p);
+			let bucket = buckets[p.tier];
+			if (!bucket) {
+				bucket = [];
+				buckets[p.tier] = bucket;
+			}
+			bucket.push(p);
 		}
-		return TIER_ORDER.filter((t) => buckets[t]?.length).map(
-			(t) => [t, buckets[t]!] as const
-		);
+		return TIER_ORDER.filter((t) => buckets[t]?.length).map((t) => [t, buckets[t]!] as const);
 	});
 </script>
 

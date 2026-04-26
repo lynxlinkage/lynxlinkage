@@ -1,57 +1,130 @@
 jobs:
   - id: 1
-    title: "Quantitative Researcher"
-    team: "Research"
-    location: "Singapore / Remote"
+    title: "System Engineer"
+    team: "Engineering"
+    location: "Remote (Taiwan)"
     employment_type: "full_time"
     description_md: |
-      We are looking for a quantitative researcher to design, prototype and
-      productionise systematic trading strategies across crypto and traditional
-      markets.
+      We are looking for a system engineer who can own the trading stack
+      end-to-end — from market-data capture and clock discipline through
+      to colocated execution and exchange connectivity. Your code will run our
+      book, so we expect you to care about both correctness and latency.
+
+      Engineering at lynxlinkage is fully remote, with the team based in
+      Taiwan. We organise around overlapping working hours rather than a single
+      office.
 
       ### What you will do
-      - Design alpha signals from market and alternative data.
-      - Backtest, validate and risk-manage strategies end-to-end.
-      - Collaborate closely with engineering on the live trading stack.
 
-      ### About you
-      - Strong foundations in statistics, probability and time-series modelling.
-      - Proficiency in Python; bonus for Rust, C++ or Go.
-      - You care about scientific rigour and reproducibility.
+      - Design and operate the low-latency execution and market-data stack
+        across multiple crypto venues.
+      - Profile and optimise hot paths in Go and / or Rust; build observability
+        that catches drift and degradation before they hit PnL.
+      - Manage exchange connectivity (REST, WebSocket, FIX where applicable)
+        and the colocation footprint that backs it.
+      - Make on-call workable: alerts that mean something, runbooks people can
+        follow, and post-mortems we actually learn from.
+      - Pair with the research team to put their strategies into production
+        without losing edge in translation.
+
+      ### What we are looking for
+
+      - 4+ years building production systems where latency and correctness
+        both matter.
+      - Comfortable with concurrent code, Linux networking, and the
+        performance toolbox — you can read a flame graph and have an
+        opinion about which lines deserve to be slow.
+      - Solid Go or Rust; Python for tooling.
+      - Bonus: experience with crypto exchanges, an HFT / market-making stack,
+        or low-level kernel / NIC tuning.
+
+      ### Compensation
+
+      Competitive base + meaningful upside in the firm's PnL. Details
+      discussed during the interview process.
     apply_url_or_email: "careers@lynxlinkage.com"
-    posted_at: "2026-04-10"
+    posted_at: "2026-04-20"
     is_active: true
 
   - id: 2
-    title: "Trading Systems Engineer"
-    team: "Engineering"
-    location: "Singapore"
+    title: "Quantitative Researcher"
+    team: "Research"
+    location: "Remote (Taiwan)"
     employment_type: "full_time"
     description_md: |
-      Build and operate the low-latency execution stack that powers our
-      trading strategies across multiple venues.
+      We are looking for a quantitative researcher to design, validate and
+      operate statistical-arbitrage strategies in crypto markets. You will own
+      strategies end-to-end — from initial conjecture, through backtest
+      and risk sizing, to live PnL — and work directly with engineering
+      on the trading stack.
+
+      Research at lynxlinkage is fully remote, with the team based in Taiwan.
 
       ### What you will do
-      - Own services on the critical path: order routing, market data, risk.
-      - Profile and optimise hot paths in Go / Rust / C++.
-      - Design observability that makes the unobservable observable.
 
-      ### About you
-      - Comfortable with concurrent systems and lock-free data structures.
-      - Pragmatic about trade-offs between latency, throughput and clarity.
+      - Pose statistical conjectures about market microstructure and
+        cross-asset relationships, then test them with rigour.
+      - Design and validate cross-venue, basis / funding, and cointegration
+        strategies on crypto spot and derivatives.
+      - Risk-manage live strategies day-to-day; be ready to pull the cord
+        when the data says so.
+      - Write things down — internal notes, post-mortems, and the
+        occasional public piece.
+
+      ### What we are looking for
+
+      - Strong foundations in statistics, probability and time-series
+        modelling.
+      - Hands-on experience with at least one of: cointegration, market
+        making, or microstructure research.
+      - Proficient in Python; comfortable enough in Go or Rust to pair with
+        the systems team.
+      - You care about scientific rigour, falsifiability, and not fooling
+        yourself.
+      - Crypto-trading experience is welcome but not required —
+        genuine curiosity about the asset class is.
+
+      ### Compensation
+
+      Competitive base + a direct share of the strategies you put into
+      production. Details discussed during the interview process.
     apply_url_or_email: "careers@lynxlinkage.com"
-    posted_at: "2026-04-02"
+    posted_at: "2026-04-18"
     is_active: true
 
   - id: 3
-    title: "Research Engineer (Internship)"
+    title: "Quantitative Research Intern"
     team: "Research"
-    location: "Remote"
+    location: "Remote (Taiwan)"
     employment_type: "internship"
     description_md: |
-      A 3-month internship working alongside our quant researchers. You will
-      ship a research project end-to-end, from data collection to a written
-      research note.
-    apply_url_or_email: "https://lynxlinkage.com/apply/intern-2026"
-    posted_at: "2026-03-25"
+      A 3- to 6-month internship working alongside our quant researchers on
+      real strategies. You will ship a research project end-to-end —
+      from data collection through backtest to a written research note
+      — and have the chance to extend into a full-time offer.
+
+      Internships are fully remote, with the team based in Taiwan.
+
+      ### What you will do
+
+      - Pick a research question off the team's backlog and own it.
+      - Build the dataset, write the models, present the findings.
+      - Pair with engineering when the work needs to touch production.
+
+      ### What we are looking for
+
+      - Currently pursuing (or recently completed) a degree with strong
+        quantitative content — statistics, mathematics, physics,
+        computer science, financial engineering, or similar.
+      - Comfortable in Python with pandas / numpy / a notebook environment.
+      - You can articulate what would make your hypothesis wrong, not just
+        what would make it right.
+      - Genuine curiosity about crypto markets.
+
+      ### Compensation
+
+      Paid internship at a level that reflects the work; we don't run
+      "exposure"-only programmes.
+    apply_url_or_email: "careers@lynxlinkage.com"
+    posted_at: "2026-04-15"
     is_active: true

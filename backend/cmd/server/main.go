@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/api"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/auth"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/config"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/static"
@@ -58,6 +59,8 @@ func run() error {
 	defer db.Close()
 
 	contactRL := middleware.NewIPRateLimiter(cfg.ContactRPS, cfg.ContactBurst)
+	users := store.NewUserRepo(db)
+	authMgr := auth.NewManager(cfg.SessionSecret, cfg.SessionTTL, users, cfg.Env == "production")
 
 	server := &api.Server{
 		Logger:    logger,
@@ -66,7 +69,9 @@ func run() error {
 		Jobs:      store.NewJobRepo(db),
 		Partners:  store.NewPartnerRepo(db),
 		Contact:   store.NewContactRepo(db),
+		Users:     users,
 		ContactRL: contactRL,
+		Auth:      authMgr,
 	}
 
 	r := gin.New()

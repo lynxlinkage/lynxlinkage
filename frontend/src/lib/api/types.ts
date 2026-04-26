@@ -24,6 +24,10 @@ export interface JobPosting {
 	applyUrlOrEmail: string;
 	postedAt: string;
 	isActive: boolean;
+	createdAt?: string;
+	updatedAt?: string;
+	createdBy?: number;
+	updatedBy?: number;
 }
 
 export type PartnerTier = 'strategic' | 'exchange' | 'broker' | 'tech';
@@ -50,4 +54,25 @@ export interface ContactPayload {
 
 export interface ListResponse<T> {
 	items: T[];
+}
+
+export type Role = 'hr';
+
+export interface User {
+	id: number;
+	email: string;
+	role: Role;
+	createdAt: string;
+	lastLoginAt?: string;
+}
+
+export interface JobUpsertPayload {
+	title: string;
+	team: string;
+	location: string;
+	employmentType: EmploymentType;
+	descriptionMd: string;
+	applyUrlOrEmail: string;
+	postedAt?: string;
+	isActive?: boolean;
 }

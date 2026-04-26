@@ -75,6 +75,46 @@ All endpoints are JSON. Read endpoints are safe to call at prerender time.
 | GET    | `/api/v1/jobs/:id`                | Single job posting                   |
 | GET    | `/api/v1/partners`                | Partners (logo wall)                 |
 | POST   | `/api/v1/contact`                 | Contact submission (rate-limited)    |
+| POST   | `/api/v1/auth/login`              | Sign in with email + password        |
+| POST   | `/api/v1/auth/logout`             | Clear session cookie                 |
+| GET    | `/api/v1/auth/me`                 | Current authenticated user           |
+| GET    | `/api/v1/admin/jobs`              | All postings (HR only)               |
+| POST   | `/api/v1/admin/jobs`              | Create posting (HR only)             |
+| PUT    | `/api/v1/admin/jobs/:id`          | Update posting (HR only)             |
+| DELETE | `/api/v1/admin/jobs/:id`          | Hard-delete posting (HR only)        |
+
+## HR / admin
+
+Recruiters sign in at `/login` and manage job postings at `/admin`. Both
+pages are client-rendered SPAs (`prerender = false`, `ssr = false`) served
+through the SvelteKit `200.html` fallback so the rest of the site remains
+fully prerendered.
+
+Authentication is HMAC-signed session cookies (HttpOnly, SameSite=Strict,
+7-day TTL by default). Rotate `SESSION_SECRET` to invalidate every
+outstanding session.
+
+### Bootstrap an HR user
+
+```sh
+# Interactive (password prompted, not echoed):
+make createuser EMAIL=hr@example.com
+
+# Non-interactive:
+make createuser EMAIL=hr@example.com PASSWORD='choose-a-strong-one'
+```
+
+Behind the scenes this runs `go run ./cmd/createuser`, which inserts a row
+into the `users` table with a bcrypt hash. Currently only the `hr` role is
+supported.
+
+### Production checklist
+
+- Set `SESSION_SECRET` to a long random value
+  (`openssl rand -base64 48`). The server refuses to start in
+  `APP_ENV=production` without it.
+- Serve the binary behind TLS — the `Secure` cookie flag is set when
+  `APP_ENV=production`, so the cookie won't be sent over plain HTTP.
 
 ## Configuration
 

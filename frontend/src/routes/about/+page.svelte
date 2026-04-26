@@ -32,8 +32,8 @@
 			body: 'From market-data capture to risk to execution \u2014 we build it ourselves when off-the-shelf tools fall short of the bar that crypto microstructure demands.'
 		},
 		{
-			title: 'Data quality is the strategy',
-			body: 'Funding ticks, trade prints, and order-book deltas are the raw material. Most of our edge comes from cleaner data and tighter clocks.'
+			title: 'Theory-driven, not data-driven',
+			body: 'Each strategy starts as a statistical conjecture about how a market should behave. The data is where we look for disconfirming evidence, and the live market is the final referee.'
 		},
 		{
 			title: 'Small team, full ownership',
@@ -55,13 +55,13 @@
 
 <Seo
 	title="About us"
-	description="lynxlinkage is a small team of researchers and engineers focused on statistical arbitrage in crypto markets."
+	description="lynxlinkage is an agile team of researchers and engineers focused on statistical arbitrage in crypto markets."
 	path="/about"
 />
 
 <Hero
 	eyebrow="About us"
-	title="A small team going deep on crypto statistical arbitrage."
+	title="An agile team going deep on statistical arbitrage in crypto market."
 	subtitle="We trade systematic strategies across digital-asset markets &mdash; cross-venue, basis, funding, and cointegrated pairs. No retail fluff, no AI buzzwords. Careful research, robust infrastructure, and tight feedback loops between the two."
 />
 
@@ -138,8 +138,9 @@
 	<div class="container-narrow">
 		<h2>Where we are</h2>
 		<p>
-			The team is {site.locations.join(', ').toLowerCase()} &mdash; we hire wherever the right
-			person is, and we organise around overlapping working hours rather than a single office.
+			The team is fully remote and based in Taiwan. We organise around overlapping working hours
+			rather than a single office, and we hire wherever the right person is &mdash; provided they
+			are happy to work on Taiwan time.
 		</p>
 	</div>
 </section>

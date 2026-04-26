@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/auth"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
 )
@@ -21,7 +23,9 @@ type Server struct {
 	Jobs      *store.JobRepo
 	Partners  *store.PartnerRepo
 	Contact   *store.ContactRepo
+	Users     *store.UserRepo
 	ContactRL *middleware.IPRateLimiter
+	Auth      *auth.Manager
 }
 
 // Register mounts all routes under /api/v1 on the provided router.
@@ -39,6 +43,23 @@ func (s *Server) Register(r *gin.Engine) {
 			contact.Use(s.ContactRL.Middleware())
 		}
 		contact.POST("", s.handleSubmitContact)
+
+		// Authentication: open login + protected logout/me.
+		v1auth := v1.Group("/auth")
+		v1auth.POST("/login", s.handleLogin)
+		v1auth.POST("/logout", s.handleLogout)
+		v1auth.GET("/me", s.Auth.RequireAuth(), s.handleMe)
+
+		// Admin: HR-only mutations on job postings.
+		admin := v1.Group("/admin")
+		admin.Use(s.Auth.RequireAuth())
+		admin.Use(s.Auth.RequireRole(domain.RoleHR))
+		{
+			admin.GET("/jobs", s.handleAdminListJobs)
+			admin.POST("/jobs", s.handleAdminCreateJob)
+			admin.PUT("/jobs/:id", s.handleAdminUpdateJob)
+			admin.DELETE("/jobs/:id", s.handleAdminDeleteJob)
+		}
 	}
 }
 

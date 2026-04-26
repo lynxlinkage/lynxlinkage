@@ -152,3 +152,7 @@ func withTx(ctx context.Context, db *sqlx.DB, fn func(*sqlx.Tx) error) error {
 
 // IsNoRows reports whether err is sql.ErrNoRows.
 func IsNoRows(err error) bool { return err == sql.ErrNoRows }
+
+// ErrNotFound is returned by repositories when an update target row does
+// not exist.
+var ErrNotFound = sql.ErrNoRows

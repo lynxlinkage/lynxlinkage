@@ -39,6 +39,16 @@ export async function loadJobs(fetchFn: FetchLike): Promise<JobPosting[]> {
 	return data.items ?? [];
 }
 
+export async function loadJob(fetchFn: FetchLike, id: string | number): Promise<JobPosting | null> {
+	const url = new URL(`/api/v1/jobs/${id}`, BACKEND_URL).toString();
+	const res = await fetchFn(url);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`GET /api/v1/jobs/${id} failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as JobPosting;
+}
+
 export async function loadPartners(fetchFn: FetchLike): Promise<Partner[]> {
 	const data = await getJSON<ListResponse<Partner>>('/api/v1/partners', fetchFn);
 	return data.items ?? [];

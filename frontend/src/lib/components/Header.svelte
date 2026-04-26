@@ -43,8 +43,7 @@
 					<li>
 						<a
 							href={item.href}
-							class:active={currentPath === item.href ||
-								(item.href !== '/' && currentPath.startsWith(item.href))}
+							class:active={currentPath === item.href || currentPath.startsWith(`${item.href}/`)}
 						>
 							{item.label}
 						</a>

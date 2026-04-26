@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { JobPosting } from '$lib/api/types';
 	import Hero from '$lib/components/Hero.svelte';
 	import JobCard from '$lib/components/JobCard.svelte';
 	import Seo from '$lib/components/Seo.svelte';
@@ -12,10 +13,15 @@
 	let { data }: Props = $props();
 
 	const grouped = $derived.by(() => {
-		const buckets: Record<string, typeof data.jobs> = {};
+		const buckets: Record<string, JobPosting[]> = {};
 		for (const j of data.jobs) {
 			const key = j.team || 'Other';
-			(buckets[key] ??= []).push(j);
+			let bucket = buckets[key];
+			if (!bucket) {
+				bucket = [];
+				buckets[key] = bucket;
+			}
+			bucket.push(j);
 		}
 		return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b));
 	});

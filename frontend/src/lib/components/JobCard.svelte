@@ -7,17 +7,9 @@
 	}
 
 	let { job }: Props = $props();
-
-	const applyHref = $derived(
-		job.applyUrlOrEmail.includes('@')
-			? `mailto:${job.applyUrlOrEmail}?subject=${encodeURIComponent(`Application: ${job.title}`)}`
-			: job.applyUrlOrEmail
-	);
-
-	const isExternalLink = $derived(!job.applyUrlOrEmail.includes('@'));
 </script>
 
-<article class="card">
+<a class="card" href={`/hiring/${job.id}`} aria-label={`View role: ${job.title}`}>
 	<div class="card__meta">
 		<span class="card__team">{job.team || 'Team'}</span>
 		<span class="card__sep" aria-hidden="true">&middot;</span>
@@ -26,16 +18,11 @@
 		<span>{employmentLabel(job.employmentType)}</span>
 	</div>
 	<h3 class="card__title">{job.title}</h3>
-	<a
-		class="card__cta"
-		href={applyHref}
-		rel={isExternalLink ? 'noopener noreferrer' : undefined}
-		target={isExternalLink ? '_blank' : undefined}
-	>
-		Apply now
-		<span aria-hidden="true">&rarr;</span>
-	</a>
-</article>
+	<span class="card__cta">
+		View role
+		<span class="card__arrow" aria-hidden="true">&rarr;</span>
+	</span>
+</a>
 
 <style>
 	.card {
@@ -46,13 +33,21 @@
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 		background: var(--bg);
+		text-decoration: none;
+		color: inherit;
 		transition:
 			border-color 140ms var(--ease-out),
-			box-shadow 140ms var(--ease-out);
+			box-shadow 140ms var(--ease-out),
+			transform 140ms var(--ease-out);
 	}
 	.card:hover {
 		border-color: var(--border-strong);
 		box-shadow: var(--shadow-md);
+		transform: translateY(-1px);
+	}
+	.card:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.card__meta {
@@ -86,11 +81,11 @@
 		color: var(--accent);
 		margin-top: var(--space-2);
 	}
-	.card__cta:hover span {
-		transform: translateX(3px);
-	}
-	.card__cta span {
+	.card__arrow {
 		display: inline-block;
 		transition: transform 160ms var(--ease-out);
+	}
+	.card:hover .card__arrow {
+		transform: translateX(3px);
 	}
 </style>

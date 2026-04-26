@@ -6,14 +6,14 @@ export const site = {
 	name: 'lynxlinkage',
 	tagline: 'Statistical arbitrage in crypto markets.',
 	description:
-		'lynxlinkage is a small team of researchers and engineers building systematic statistical-arbitrage strategies for crypto markets. We publish what we learn, hire technically deep people, and partner with the venues and infrastructure we depend on.',
+		'lynxlinkage is an agile team of researchers and engineers building systematic statistical-arbitrage strategies for crypto markets. We publish what we learn, hire technically deep people, and partner with the venues and infrastructure we depend on.',
 	contactEmail: 'hello@lynxlinkage.com',
 	careersEmail: 'careers@lynxlinkage.com',
 	pressEmail: 'press@lynxlinkage.com',
 	url: 'https://lynxlinkage.com',
 	github: 'https://github.com/lynxlinkage',
 	founded: 2024,
-	locations: ['Remote'],
+	locations: ['Remote', 'Taiwan'],
 	nav: [
 		{ href: '/about', label: 'About us' },
 		{ href: '/researches', label: 'Public researches' },
