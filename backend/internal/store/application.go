@@ -2,27 +2,98 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
 )
 
-// ApplicationRepo persists candidate applications and uploaded artifact
-// metadata. The on-disk byte storage is owned by package uploads; this
-// repo only deals in rows.
+// ApplicationRepo persists candidate applications, uploaded artifact
+// metadata, and pipeline status changes. The on-disk byte storage is
+// owned by package uploads; this repo only deals in rows.
 type ApplicationRepo struct{ db *sqlx.DB }
 
 func NewApplicationRepo(db *sqlx.DB) *ApplicationRepo { return &ApplicationRepo{db: db} }
 
-// Create inserts an application row and returns the new ID. Files are
-// inserted separately via AddFile after the bytes are persisted on disk.
-func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application) (int64, error) {
+// applicationSelect lists every column the repo reads on List/Get,
+// including the joined status fields. Keeping it in one constant
+// guarantees List and Get stay in sync.
+const applicationSelect = `
+    SELECT a.id, a.job_id, a.name, a.email, a.message,
+           a.ip_address, a.user_agent, a.created_at,
+           a.status_id, a.status_updated_at, a.status_updated_by,
+           COALESCE(j.title, '')        AS job_title,
+           s.slug                        AS status_slug,
+           s.name                        AS status_name,
+           s.kind                        AS status_kind,
+           s.color                       AS status_color,
+           s.display_order               AS status_display_order,
+           s.is_default                  AS status_is_default,
+           s.created_at                  AS status_created_at
+    FROM applications a
+    LEFT JOIN job_postings j         ON j.id = a.job_id
+    LEFT JOIN application_statuses s ON s.id = a.status_id
+`
+
+// applicationRow is what we scan into; the joined status columns are
+// nullable because not every row has a status (or the status was
+// deleted via ON DELETE SET NULL). We hydrate domain.Application.Status
+// from these fields after scanning.
+type applicationRow struct {
+	domain.Application
+	StatusSlug         *string `db:"status_slug"`
+	StatusName         *string `db:"status_name"`
+	StatusKind         *string `db:"status_kind"`
+	StatusColor        *string `db:"status_color"`
+	StatusDisplayOrder *int    `db:"status_display_order"`
+	StatusIsDefault    *bool   `db:"status_is_default"`
+	StatusCreatedAt    *string `db:"status_created_at"`
+}
+
+func (r applicationRow) toDomain() domain.Application {
+	app := r.Application
+	if r.StatusName != nil && app.StatusID != nil {
+		s := domain.ApplicationStatus{ID: *app.StatusID, Name: *r.StatusName}
+		if r.StatusSlug != nil {
+			s.Slug = *r.StatusSlug
+		}
+		if r.StatusKind != nil {
+			s.Kind = domain.ApplicationStatusKind(*r.StatusKind)
+		}
+		if r.StatusColor != nil {
+			s.Color = *r.StatusColor
+		}
+		if r.StatusDisplayOrder != nil {
+			s.DisplayOrder = *r.StatusDisplayOrder
+		}
+		if r.StatusIsDefault != nil {
+			s.IsDefault = *r.StatusIsDefault
+		}
+		app.Status = &s
+	}
+	return app
+}
+
+// Create inserts an application row and returns the new ID. The caller
+// passes in defaultStatusID (the id of the status to apply to brand-new
+// rows); if zero, the row is created without a status and shows up as
+// "needs triage" in the admin UI.
+func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application, defaultStatusID int64) (int64, error) {
+	if defaultStatusID > 0 {
+		a.StatusID = &defaultStatusID
+	}
 	const q = `
-        INSERT INTO applications (job_id, name, email, message, ip_address, user_agent)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO applications (
+            job_id, name, email, message, ip_address, user_agent,
+            status_id, status_updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `
 	res, err := r.db.ExecContext(ctx, q,
 		a.JobID, a.Name, a.Email, a.Message, a.IPAddress, a.UserAgent,
+		a.StatusID,
 	)
 	if err != nil {
 		return 0, err
@@ -32,6 +103,17 @@ func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application) (in
 		return 0, err
 	}
 	a.ID = id
+
+	// Seed the audit trail with the initial status assignment so the
+	// detail view shows a complete history.
+	if defaultStatusID > 0 {
+		if _, err := r.db.ExecContext(ctx, `
+            INSERT INTO application_status_events (application_id, from_status_id, to_status_id, actor_id, note)
+            VALUES (?, NULL, ?, NULL, 'submitted')
+        `, id, defaultStatusID); err != nil {
+			return 0, fmt.Errorf("seed status event: %w", err)
+		}
+	}
 	return id, nil
 }
 
@@ -74,51 +156,70 @@ func (r *ApplicationRepo) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// List returns applications, newest first, optionally filtered by
-// jobID (pass 0 for all). The returned rows are joined to job_postings
-// to populate JobTitle so the admin list doesn't need to round-trip.
-func (r *ApplicationRepo) List(ctx context.Context, jobID int64, limit int) ([]domain.Application, error) {
+// ListFilter is the bag of optional filters and sort options accepted
+// by List. A zero value lists all applications, newest first.
+type ListFilter struct {
+	JobID    int64
+	StatusID int64
+	Sort     string // "newest" (default) or "oldest"
+	Limit    int
+}
+
+// List returns applications matching the filter, joined with the
+// related job posting (for job_title) and status (for the badge).
+func (r *ApplicationRepo) List(ctx context.Context, f ListFilter) ([]domain.Application, error) {
+	limit := f.Limit
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	args := []any{}
-	q := `
-        SELECT a.id, a.job_id, a.name, a.email, a.message,
-               a.ip_address, a.user_agent, a.created_at,
-               COALESCE(j.title, '') AS job_title
-        FROM applications a
-        LEFT JOIN job_postings j ON j.id = a.job_id
-    `
-	if jobID > 0 {
-		q += ` WHERE a.job_id = ? `
-		args = append(args, jobID)
+
+	var (
+		where []string
+		args  []any
+	)
+	if f.JobID > 0 {
+		where = append(where, "a.job_id = ?")
+		args = append(args, f.JobID)
 	}
-	q += ` ORDER BY a.created_at DESC, a.id DESC LIMIT ? `
+	if f.StatusID > 0 {
+		where = append(where, "a.status_id = ?")
+		args = append(args, f.StatusID)
+	}
+
+	q := applicationSelect
+	if len(where) > 0 {
+		q += ` WHERE ` + strings.Join(where, " AND ")
+	}
+
+	if strings.EqualFold(f.Sort, "oldest") {
+		q += ` ORDER BY a.created_at ASC, a.id ASC `
+	} else {
+		q += ` ORDER BY a.created_at DESC, a.id DESC `
+	}
+	q += ` LIMIT ? `
 	args = append(args, limit)
 
-	out := []domain.Application{}
-	if err := r.db.SelectContext(ctx, &out, q, args...); err != nil {
+	rows := []applicationRow{}
+	if err := r.db.SelectContext(ctx, &rows, q, args...); err != nil {
 		return nil, err
+	}
+	out := make([]domain.Application, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row.toDomain())
 	}
 	return out, nil
 }
 
-// Get returns a single application without its files (use ListFiles
-// to populate them).
+// Get returns a single application with the joined status. Files and
+// history are loaded separately by the caller.
 func (r *ApplicationRepo) Get(ctx context.Context, id int64) (*domain.Application, error) {
-	const q = `
-        SELECT a.id, a.job_id, a.name, a.email, a.message,
-               a.ip_address, a.user_agent, a.created_at,
-               COALESCE(j.title, '') AS job_title
-        FROM applications a
-        LEFT JOIN job_postings j ON j.id = a.job_id
-        WHERE a.id = ?
-    `
-	var a domain.Application
-	if err := r.db.GetContext(ctx, &a, q, id); err != nil {
+	q := applicationSelect + ` WHERE a.id = ?`
+	var row applicationRow
+	if err := r.db.GetContext(ctx, &row, q, id); err != nil {
 		return nil, err
 	}
-	return &a, nil
+	app := row.toDomain()
+	return &app, nil
 }
 
 // ListFiles returns the files attached to an application.
@@ -148,4 +249,99 @@ func (r *ApplicationRepo) GetFile(ctx context.Context, id int64) (*domain.Applic
 		return nil, err
 	}
 	return &f, nil
+}
+
+// ErrSameStatus is returned by UpdateStatus when the requested status
+// is already the current one. The handler turns this into a 200 with a
+// no-op body so HR's "save" button is idempotent.
+var ErrSameStatus = errors.New("store: application already has that status")
+
+// UpdateStatus moves an application to newStatusID and writes one row
+// to application_status_events. The whole change is one transaction so
+// a row's status and its history can never disagree.
+func (r *ApplicationRepo) UpdateStatus(
+	ctx context.Context,
+	applicationID int64,
+	newStatusID int64,
+	actorID *int64,
+	note string,
+) (*domain.ApplicationStatusEvent, error) {
+	var event *domain.ApplicationStatusEvent
+	err := withTx(ctx, r.db, func(tx *sqlx.Tx) error {
+		var current struct {
+			StatusID *int64 `db:"status_id"`
+		}
+		if err := tx.GetContext(ctx, &current,
+			`SELECT status_id FROM applications WHERE id = ?`, applicationID); err != nil {
+			return err
+		}
+		if current.StatusID != nil && *current.StatusID == newStatusID {
+			return ErrSameStatus
+		}
+
+		var exists int
+		if err := tx.GetContext(ctx, &exists,
+			`SELECT COUNT(*) FROM application_statuses WHERE id = ?`, newStatusID); err != nil {
+			return err
+		}
+		if exists == 0 {
+			return ErrNotFound
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE applications
+               SET status_id          = ?,
+                   status_updated_at  = CURRENT_TIMESTAMP,
+                   status_updated_by  = ?
+             WHERE id = ?
+        `, newStatusID, actorID, applicationID); err != nil {
+			return err
+		}
+
+		res, err := tx.ExecContext(ctx, `
+            INSERT INTO application_status_events
+                (application_id, from_status_id, to_status_id, actor_id, note)
+            VALUES (?, ?, ?, ?, ?)
+        `, applicationID, current.StatusID, newStatusID, actorID, note)
+		if err != nil {
+			return err
+		}
+		eventID, _ := res.LastInsertId()
+		event = &domain.ApplicationStatusEvent{
+			ID:            eventID,
+			ApplicationID: applicationID,
+			FromStatusID:  current.StatusID,
+			ToStatusID:    newStatusID,
+			ActorID:       actorID,
+			Note:          note,
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+// ListEvents returns the status-change audit log for one application,
+// oldest first, with status names and actor email joined for display.
+func (r *ApplicationRepo) ListEvents(ctx context.Context, applicationID int64) ([]domain.ApplicationStatusEvent, error) {
+	const q = `
+        SELECT e.id, e.application_id, e.from_status_id, e.to_status_id,
+               e.actor_id, e.note, e.created_at,
+               COALESCE(fs.name, '') AS from_status_name,
+               COALESCE(ts.name, '') AS to_status_name,
+               COALESCE(u.email, '') AS actor_email
+        FROM application_status_events e
+        LEFT JOIN application_statuses fs ON fs.id = e.from_status_id
+        LEFT JOIN application_statuses ts ON ts.id = e.to_status_id
+        LEFT JOIN users u                 ON u.id = e.actor_id
+        WHERE e.application_id = ?
+        ORDER BY e.created_at ASC, e.id ASC
+    `
+	out := []domain.ApplicationStatusEvent{}
+	if err := r.db.SelectContext(ctx, &out, q, applicationID); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

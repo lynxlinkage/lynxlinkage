@@ -78,6 +78,7 @@ func run() error {
 		Contact:             store.NewContactRepo(db),
 		Users:               users,
 		Applications:        store.NewApplicationRepo(db),
+		Statuses:            store.NewStatusRepo(db),
 		Uploads:             uploadStore,
 		ContactRL:           contactRL,
 		ApplyRL:             applyRL,

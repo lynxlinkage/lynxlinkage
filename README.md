@@ -83,16 +83,22 @@ All endpoints are JSON. Read endpoints are safe to call at prerender time.
 | POST   | `/api/v1/admin/jobs`                                  | Create posting (HR only)                                   |
 | PUT    | `/api/v1/admin/jobs/:id`                              | Update posting (HR only)                                   |
 | DELETE | `/api/v1/admin/jobs/:id`                              | Hard-delete posting (HR only)                              |
-| GET    | `/api/v1/admin/applications?jobId=`                   | List candidate submissions (HR only)                       |
-| GET    | `/api/v1/admin/applications/:id`                      | Submission detail with file metadata (HR only)             |
+| GET    | `/api/v1/admin/applications`                          | List submissions; filter by `?statusId=`, `?jobId=`, `?sort=newest\|oldest` (HR) |
+| GET    | `/api/v1/admin/applications/:id`                      | Submission detail with file metadata + status history (HR) |
+| PUT    | `/api/v1/admin/applications/:id/status`               | Move a candidate to a new status; writes history (HR)      |
 | GET    | `/api/v1/admin/applications/:id/files/:fileId`        | Stream a single attachment (HR only)                       |
+| GET    | `/api/v1/admin/application-statuses`                  | List statuses in the hiring workflow (HR only)             |
+| POST   | `/api/v1/admin/application-statuses`                  | Create a new pipeline status (HR only)                     |
+| PUT    | `/api/v1/admin/application-statuses/:id`              | Edit a status (rename, recolour, reorder, default) (HR)    |
+| DELETE | `/api/v1/admin/application-statuses/:id`              | Delete a status; refused if any application uses it (HR)   |
 
 ## HR / admin
 
 Recruiters sign in at `/login` and manage the site at `/admin`:
 
 - `/admin` — job postings (create, edit, hide/show, hard-delete).
-- `/admin/applications` — candidate submissions with file downloads.
+- `/admin/applications` — candidate submissions: status badge, status changer, attachments, audit history. Filters by status, role and submitted order.
+- `/admin/statuses` — customise the hiring workflow: create/rename/recolour/reorder statuses, mark one as the default for new submissions.
 
 These pages are client-rendered SPAs (`prerender = false`, `ssr = false`)
 served through the SvelteKit `200.html` fallback so the rest of the site
@@ -119,6 +125,26 @@ collisions and guessing.
 
 The endpoint is rate-limited per-IP via `APPLICATION_RPS` /
 `APPLICATION_BURST`.
+
+### Status workflow
+
+Each submission carries a status taken from a HR-defined pipeline. A
+sensible starter set ships with the database (`unread → reviewing →
+shortlist → interview → offer → accepted/rejected`) and HR can rename,
+recolour, reorder, add or remove rows from `/admin/statuses`.
+
+Every status has a `kind`:
+
+- `open` — in-flight pipeline state.
+- `accept` — terminal, candidate hired.
+- `reject` — terminal, candidate declined.
+
+New submissions are stamped with the row marked **default** (exactly one
+at any time; the system refuses to demote the last default without
+naming another). Each status change writes one row to
+`application_status_events`, so the detail panel always shows
+"From → To, who, when, optional note". A status cannot be deleted while
+any application or history row references it (returns `409`).
 
 ### Bootstrap an HR user
 

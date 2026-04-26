@@ -26,6 +26,7 @@ type Server struct {
 	Contact      *store.ContactRepo
 	Users        *store.UserRepo
 	Applications *store.ApplicationRepo
+	Statuses     *store.StatusRepo
 	Uploads      *uploads.Store
 	ContactRL    *middleware.IPRateLimiter
 	ApplyRL      *middleware.IPRateLimiter
@@ -81,7 +82,13 @@ func (s *Server) Register(r *gin.Engine) {
 
 			admin.GET("/applications", s.handleAdminListApplications)
 			admin.GET("/applications/:id", s.handleAdminGetApplication)
+			admin.PUT("/applications/:id/status", s.handleAdminUpdateApplicationStatus)
 			admin.GET("/applications/:id/files/:fileId", s.handleAdminDownloadApplicationFile)
+
+			admin.GET("/application-statuses", s.handleAdminListStatuses)
+			admin.POST("/application-statuses", s.handleAdminCreateStatus)
+			admin.PUT("/application-statuses/:id", s.handleAdminUpdateStatus)
+			admin.DELETE("/application-statuses/:id", s.handleAdminDeleteStatus)
 		}
 	}
 }

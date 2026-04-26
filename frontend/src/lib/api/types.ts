@@ -86,6 +86,41 @@ export interface ApplicationFile {
 	createdAt: string;
 }
 
+export type ApplicationStatusKind = 'open' | 'accept' | 'reject';
+
+export interface ApplicationStatus {
+	id: number;
+	slug: string;
+	name: string;
+	kind: ApplicationStatusKind;
+	color: string;
+	displayOrder: number;
+	isDefault: boolean;
+	createdAt: string;
+}
+
+export interface ApplicationStatusUpsertPayload {
+	slug?: string;
+	name: string;
+	kind: ApplicationStatusKind;
+	color?: string;
+	displayOrder?: number;
+	isDefault?: boolean;
+}
+
+export interface ApplicationStatusEvent {
+	id: number;
+	applicationId: number;
+	fromStatusId?: number;
+	toStatusId: number;
+	actorId?: number;
+	note: string;
+	createdAt: string;
+	fromStatusName?: string;
+	toStatusName?: string;
+	actorEmail?: string;
+}
+
 export interface Application {
 	id: number;
 	jobId: number;
@@ -94,5 +129,19 @@ export interface Application {
 	email: string;
 	message: string;
 	createdAt: string;
+	statusId?: number;
+	statusUpdatedAt?: string;
+	statusUpdatedBy?: number;
+	status?: ApplicationStatus;
 	files?: ApplicationFile[];
+	history?: ApplicationStatusEvent[];
+}
+
+export type ApplicationSort = 'newest' | 'oldest';
+
+export interface ApplicationListFilter {
+	jobId?: number;
+	statusId?: number;
+	sort?: ApplicationSort;
+	limit?: number;
 }

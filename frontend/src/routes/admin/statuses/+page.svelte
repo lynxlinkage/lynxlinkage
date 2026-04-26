@@ -3,18 +3,22 @@
 	import { onMount } from 'svelte';
 	import {
 		ApiError,
-		adminCreateJob,
-		adminDeleteJob,
-		adminListJobs,
-		adminUpdateJob
+		adminCreateStatus,
+		adminDeleteStatus,
+		adminListStatuses,
+		adminUpdateStatus
 	} from '$lib/api/client';
 	import { auth } from '$lib/auth.svelte';
-	import type { EmploymentType, JobPosting, JobUpsertPayload } from '$lib/api/types';
+	import type {
+		ApplicationStatus,
+		ApplicationStatusKind,
+		ApplicationStatusUpsertPayload
+	} from '$lib/api/types';
 
 	type Mode = 'list' | 'create' | 'edit';
 
 	let mode = $state<Mode>('list');
-	let jobs = $state<JobPosting[]>([]);
+	let items = $state<ApplicationStatus[]>([]);
 	let loading = $state(true);
 	let listError = $state<string | null>(null);
 
@@ -22,33 +26,30 @@
 	let formError = $state<string | null>(null);
 	let saving = $state(false);
 
-	const employmentTypes: { value: EmploymentType; label: string }[] = [
-		{ value: 'full_time', label: 'Full-time' },
-		{ value: 'part_time', label: 'Part-time' },
-		{ value: 'contract', label: 'Contract' },
-		{ value: 'internship', label: 'Internship' }
+	const kindOptions: { value: ApplicationStatusKind; label: string; hint: string }[] = [
+		{ value: 'open', label: 'Open', hint: 'In-flight pipeline state' },
+		{ value: 'accept', label: 'Accept', hint: 'Terminal — candidate hired' },
+		{ value: 'reject', label: 'Reject', hint: 'Terminal — candidate declined' }
 	];
 
-	const blankForm: JobUpsertPayload = {
-		title: '',
-		team: '',
-		location: 'Remote (Taiwan)',
-		employmentType: 'full_time',
-		descriptionMd: '',
-		applyUrlOrEmail: '',
-		postedAt: '',
-		isActive: true
+	const blank: ApplicationStatusUpsertPayload = {
+		slug: '',
+		name: '',
+		kind: 'open',
+		color: '#0ea5e9',
+		displayOrder: 0,
+		isDefault: false
 	};
-	let form = $state<JobUpsertPayload>({ ...blankForm });
+	let form = $state<ApplicationStatusUpsertPayload>({ ...blank });
 
 	onMount(async () => {
 		const user = await auth.load();
 		if (!user) {
-			void goto(`/login?next=${encodeURIComponent('/admin')}`, { replaceState: true });
+			void goto(`/login?next=${encodeURIComponent('/admin/statuses')}`, { replaceState: true });
 			return;
 		}
 		if (user.role !== 'hr') {
-			listError = 'Your account is not authorised to manage job postings.';
+			listError = 'Your account is not authorised to manage the workflow.';
 			loading = false;
 			return;
 		}
@@ -59,45 +60,47 @@
 		loading = true;
 		listError = null;
 		try {
-			jobs = await adminListJobs();
+			items = await adminListStatuses();
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 401) {
-				void goto(`/login?next=${encodeURIComponent('/admin')}`, { replaceState: true });
+				void goto(`/login?next=${encodeURIComponent('/admin/statuses')}`, { replaceState: true });
 				return;
 			}
-			listError = err instanceof Error ? err.message : 'Failed to load jobs';
+			listError = err instanceof Error ? err.message : 'Failed to load statuses';
 		} finally {
 			loading = false;
 		}
 	}
 
 	function startCreate() {
-		form = { ...blankForm };
+		const nextOrder =
+			items.length > 0
+				? Math.max(...items.map((i) => i.displayOrder)) + 10
+				: 0;
+		form = { ...blank, displayOrder: nextOrder };
 		editingId = null;
 		formError = null;
 		mode = 'create';
 	}
 
-	function startEdit(job: JobPosting) {
+	function startEdit(status: ApplicationStatus) {
 		form = {
-			title: job.title,
-			team: job.team,
-			location: job.location,
-			employmentType: job.employmentType,
-			descriptionMd: job.descriptionMd,
-			applyUrlOrEmail: job.applyUrlOrEmail,
-			postedAt: job.postedAt ? job.postedAt.slice(0, 10) : '',
-			isActive: job.isActive
+			slug: status.slug,
+			name: status.name,
+			kind: status.kind,
+			color: status.color,
+			displayOrder: status.displayOrder,
+			isDefault: status.isDefault
 		};
-		editingId = job.id;
+		editingId = status.id;
 		formError = null;
 		mode = 'edit';
 	}
 
-	function cancelEdit() {
+	function cancel() {
+		editingId = null;
 		formError = null;
 		mode = 'list';
-		editingId = null;
 	}
 
 	async function onSave(e: SubmitEvent) {
@@ -106,22 +109,21 @@
 		formError = null;
 		saving = true;
 		try {
-			const payload: JobUpsertPayload = {
-				...form,
-				title: form.title.trim(),
-				team: form.team.trim(),
-				location: form.location.trim(),
-				applyUrlOrEmail: form.applyUrlOrEmail.trim(),
-				descriptionMd: form.descriptionMd
+			const payload: ApplicationStatusUpsertPayload = {
+				slug: form.slug?.trim() || undefined,
+				name: form.name.trim(),
+				kind: form.kind,
+				color: form.color?.trim() || undefined,
+				displayOrder: form.displayOrder,
+				isDefault: form.isDefault
 			};
 			if (mode === 'edit' && editingId != null) {
-				await adminUpdateJob(editingId, payload);
+				await adminUpdateStatus(editingId, payload);
 			} else {
-				await adminCreateJob(payload);
+				await adminCreateStatus(payload);
 			}
 			await refresh();
-			mode = 'list';
-			editingId = null;
+			cancel();
 		} catch (err) {
 			formError = err instanceof Error ? err.message : 'Save failed';
 		} finally {
@@ -129,32 +131,13 @@
 		}
 	}
 
-	async function toggleActive(job: JobPosting) {
-		try {
-			await adminUpdateJob(job.id, {
-				title: job.title,
-				team: job.team,
-				location: job.location,
-				employmentType: job.employmentType,
-				descriptionMd: job.descriptionMd,
-				applyUrlOrEmail: job.applyUrlOrEmail,
-				postedAt: job.postedAt ? job.postedAt.slice(0, 10) : undefined,
-				isActive: !job.isActive
-			});
-			await refresh();
-		} catch (err) {
-			listError = err instanceof Error ? err.message : 'Toggle failed';
-		}
-	}
-
-	async function deleteJob(job: JobPosting) {
+	async function onDelete(status: ApplicationStatus) {
 		const ok = window.confirm(
-			`Permanently delete "${job.title}"?\n\nThis cannot be undone. ` +
-				`Use "Hide" instead if you only want to take it off the public site.`
+			`Delete "${status.name}"?\n\nThis only works if no applications still reference it.`
 		);
 		if (!ok) return;
 		try {
-			await adminDeleteJob(job.id);
+			await adminDeleteStatus(status.id);
 			await refresh();
 		} catch (err) {
 			listError = err instanceof Error ? err.message : 'Delete failed';
@@ -166,33 +149,14 @@
 		void goto('/login', { replaceState: true });
 	}
 
-	function fmtDate(iso: string): string {
-		try {
-			return new Date(iso).toISOString().slice(0, 10);
-		} catch {
-			return iso;
-		}
-	}
-
-	function fmtRelative(iso: string | undefined): string {
-		if (!iso) return '—';
-		const t = Date.parse(iso);
-		if (Number.isNaN(t)) return '—';
-		const diffMs = Date.now() - t;
-		const sec = Math.round(diffMs / 1000);
-		if (sec < 60) return 'just now';
-		const min = Math.round(sec / 60);
-		if (min < 60) return `${min} min ago`;
-		const hr = Math.round(min / 60);
-		if (hr < 24) return `${hr}h ago`;
-		const day = Math.round(hr / 24);
-		if (day < 30) return `${day}d ago`;
-		return new Date(t).toISOString().slice(0, 10);
+	function badgeStyle(color: string): string {
+		const c = color || '#64748b';
+		return `--badge-color: ${c};`;
 	}
 </script>
 
 <svelte:head>
-	<title>Admin · Lynxlinkage</title>
+	<title>Workflow · Admin · Lynxlinkage</title>
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
@@ -201,7 +165,7 @@
 		<header class="admin__header">
 			<div>
 				<p class="muted small">Admin</p>
-				<h1>Job postings</h1>
+				<h1>Hiring workflow</h1>
 			</div>
 			<div class="admin__user">
 				{#if auth.user}
@@ -214,14 +178,21 @@
 		</header>
 
 		<nav class="admin__tabs" aria-label="Admin sections">
-			<a class="admin__tab admin__tab--active" href="/admin">Job postings</a>
+			<a class="admin__tab" href="/admin">Job postings</a>
 			<a class="admin__tab" href="/admin/applications">Applications</a>
-			<a class="admin__tab" href="/admin/statuses">Workflow</a>
+			<a class="admin__tab admin__tab--active" href="/admin/statuses">Workflow</a>
 		</nav>
+
+		<p class="muted">
+			HR-defined pipeline. New applications start in the status marked
+			<strong>Default</strong>; ordering controls the dropdowns HR sees on the application
+			detail page. Two terminal kinds (<em>accept</em> / <em>reject</em>) are tagged so the
+			rest of the system can tell in-flight from closed.
+		</p>
 
 		{#if mode === 'list'}
 			<div class="admin__toolbar">
-				<button type="button" class="primary" onclick={startCreate}>+ New job</button>
+				<button type="button" class="primary" onclick={startCreate}>+ New status</button>
 				<button type="button" class="ghost" onclick={refresh}>Refresh</button>
 			</div>
 
@@ -231,49 +202,40 @@
 
 			{#if loading}
 				<p class="muted">Loading…</p>
-			{:else if jobs.length === 0}
-				<p class="muted">No job postings yet. Click "New job" to create the first one.</p>
+			{:else if items.length === 0}
+				<p class="muted">No statuses yet — create one to begin.</p>
 			{:else}
 				<div class="table-wrapper">
 					<table class="table">
 						<thead>
 							<tr>
-								<th>Title</th>
-								<th>Team</th>
-								<th>Type</th>
-								<th>Posted</th>
-								<th>Updated</th>
-								<th>Status</th>
+								<th>Order</th>
+								<th>Name</th>
+								<th>Slug</th>
+								<th>Kind</th>
+								<th>Default</th>
 								<th class="actions">Actions</th>
 							</tr>
 						</thead>
 						<tbody>
-							{#each jobs as job (job.id)}
-								<tr class:inactive={!job.isActive}>
+							{#each items as st (st.id)}
+								<tr>
+									<td>{st.displayOrder}</td>
 									<td>
-										<a href="/hiring/{job.id}" target="_blank" rel="noopener">{job.title}</a>
+										<span class="badge" style={badgeStyle(st.color)}>{st.name}</span>
 									</td>
-									<td>{job.team || '—'}</td>
-									<td>{job.employmentType.replace('_', '-')}</td>
-									<td>{fmtDate(job.postedAt)}</td>
-									<td title={job.updatedAt ?? ''}>{fmtRelative(job.updatedAt)}</td>
-									<td>
-										<span class="badge" class:badge--off={!job.isActive}>
-											{job.isActive ? 'Active' : 'Hidden'}
-										</span>
-									</td>
+									<td><code>{st.slug}</code></td>
+									<td>{st.kind}</td>
+									<td>{st.isDefault ? 'Yes' : '—'}</td>
 									<td class="actions">
-										<button type="button" class="ghost small" onclick={() => startEdit(job)}>
+										<button type="button" class="ghost small" onclick={() => startEdit(st)}>
 											Edit
-										</button>
-										<button type="button" class="ghost small" onclick={() => toggleActive(job)}>
-											{job.isActive ? 'Hide' : 'Show'}
 										</button>
 										<button
 											type="button"
 											class="ghost small danger"
-											onclick={() => deleteJob(job)}
-											title="Permanently delete this posting"
+											onclick={() => onDelete(st)}
+											title="Delete this status (only if unused)"
 										>
 											Delete
 										</button>
@@ -285,74 +247,57 @@
 				</div>
 			{/if}
 		{:else}
-			<form class="job-form" onsubmit={onSave} novalidate>
-				<div class="job-form__head">
-					<h2>{mode === 'edit' ? 'Edit job' : 'New job'}</h2>
-					<button type="button" class="ghost" onclick={cancelEdit}>Cancel</button>
+			<form class="status-form" onsubmit={onSave} novalidate>
+				<div class="status-form__head">
+					<h2>{mode === 'edit' ? 'Edit status' : 'New status'}</h2>
+					<button type="button" class="ghost" onclick={cancel}>Cancel</button>
 				</div>
 
 				<div class="grid">
 					<label class="field">
-						<span>Title</span>
-						<input type="text" required maxlength="200" bind:value={form.title} />
+						<span>Name</span>
+						<input type="text" required maxlength="80" bind:value={form.name} />
 					</label>
 
 					<label class="field">
-						<span>Team</span>
-						<input type="text" maxlength="80" bind:value={form.team} placeholder="e.g. Engineering" />
+						<span>Slug <em>(optional, derived from name)</em></span>
+						<input type="text" maxlength="80" bind:value={form.slug} placeholder="auto" />
 					</label>
 
 					<label class="field">
-						<span>Location</span>
-						<input type="text" maxlength="120" bind:value={form.location} />
-					</label>
-
-					<label class="field">
-						<span>Employment type</span>
-						<select bind:value={form.employmentType}>
-							{#each employmentTypes as et (et.value)}
-								<option value={et.value}>{et.label}</option>
+						<span>Kind</span>
+						<select bind:value={form.kind}>
+							{#each kindOptions as opt (opt.value)}
+								<option value={opt.value}>{opt.label} — {opt.hint}</option>
 							{/each}
 						</select>
 					</label>
 
 					<label class="field">
-						<span>Apply URL or email</span>
-						<input
-							type="text"
-							required
-							maxlength="500"
-							bind:value={form.applyUrlOrEmail}
-							placeholder="hiring@example.com or https://…"
-						/>
+						<span>Display order</span>
+						<input type="number" step="1" bind:value={form.displayOrder} />
 					</label>
 
 					<label class="field">
-						<span>Posted at</span>
-						<input type="date" bind:value={form.postedAt} />
+						<span>Badge colour</span>
+						<input type="color" bind:value={form.color} />
 					</label>
 
 					<label class="field field--toggle">
-						<input type="checkbox" bind:checked={form.isActive} />
-						<span>Active (visible on the public site)</span>
+						<input type="checkbox" bind:checked={form.isDefault} />
+						<span>Default for new submissions</span>
 					</label>
 				</div>
-
-				<label class="field">
-					<span>Description (Markdown)</span>
-					<textarea rows="14" bind:value={form.descriptionMd}></textarea>
-					<small class="muted">Headings, lists, bold/italic, links and code blocks are supported.</small>
-				</label>
 
 				{#if formError}
 					<p class="error">{formError}</p>
 				{/if}
 
-				<div class="job-form__actions">
+				<div class="status-form__actions">
 					<button type="submit" class="primary" disabled={saving}>
-						{saving ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Create job'}
+						{saving ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Create status'}
 					</button>
-					<button type="button" class="ghost" onclick={cancelEdit} disabled={saving}>
+					<button type="button" class="ghost" onclick={cancel} disabled={saving}>
 						Cancel
 					</button>
 				</div>
@@ -416,7 +361,7 @@
 	.admin__toolbar {
 		display: flex;
 		gap: var(--space-2);
-		margin-bottom: var(--space-4);
+		margin: var(--space-4) 0 var(--space-3);
 	}
 
 	.table-wrapper {
@@ -448,9 +393,6 @@
 	.table tbody tr:last-child td {
 		border-bottom: none;
 	}
-	.table tbody tr.inactive td {
-		opacity: 0.55;
-	}
 	.table .actions {
 		display: flex;
 		gap: 0.4rem;
@@ -459,13 +401,10 @@
 	.table th.actions {
 		text-align: right;
 	}
-	.table a {
-		color: var(--accent);
-		text-decoration: none;
-		font-weight: 500;
-	}
-	.table a:hover {
-		text-decoration: underline;
+	.table code {
+		font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+		font-size: 0.85em;
+		color: var(--text-muted);
 	}
 
 	.badge {
@@ -476,32 +415,30 @@
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		border-radius: 999px;
-		background: var(--accent-soft);
-		color: var(--accent-strong, var(--accent));
-	}
-	.badge--off {
-		background: var(--surface-muted, #eef0f4);
-		color: var(--text-muted);
+		background: color-mix(in srgb, var(--badge-color, #64748b) 14%, transparent);
+		color: var(--badge-color, #64748b);
+		border: 1px solid color-mix(in srgb, var(--badge-color, #64748b) 35%, transparent);
 	}
 
-	.job-form {
+	.status-form {
 		display: grid;
 		gap: var(--space-4);
 		background: var(--bg);
 		padding: var(--space-5);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
+		margin-top: var(--space-4);
 	}
-	.job-form__head {
+	.status-form__head {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
-	.job-form__head h2 {
+	.status-form__head h2 {
 		margin: 0;
 		font-size: var(--text-xl);
 	}
-	.job-form__actions {
+	.status-form__actions {
 		display: flex;
 		gap: var(--space-2);
 	}
@@ -528,13 +465,14 @@
 		font-size: var(--text-sm);
 		font-weight: 500;
 	}
-	.field small {
-		font-size: 0.75rem;
+	.field em {
+		font-style: normal;
+		color: var(--text-muted);
+		font-weight: 400;
 	}
-	input[type='text'],
-	input[type='date'],
-	select,
-	textarea {
+	.field input[type='text'],
+	.field input[type='number'],
+	.field select {
 		width: 100%;
 		padding: 0.6rem 0.75rem;
 		font: inherit;
@@ -543,15 +481,16 @@
 		background: var(--bg);
 		color: var(--text);
 	}
-	textarea {
-		font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-		font-size: 0.85rem;
-		line-height: 1.5;
-		resize: vertical;
+	.field input[type='color'] {
+		width: 60px;
+		height: 36px;
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--bg);
 	}
-	input:focus,
-	select:focus,
-	textarea:focus {
+	.field input:focus,
+	.field select:focus {
 		outline: none;
 		border-color: var(--accent);
 		box-shadow: 0 0 0 3px var(--accent-soft);
@@ -591,7 +530,6 @@
 	}
 	.ghost.small {
 		padding: 0.35rem 0.6rem;
-		font-size: var(--text-sm);
 	}
 	.ghost.danger {
 		color: var(--danger, #b42318);
@@ -602,7 +540,7 @@
 		background: var(--danger-soft, #fdecec);
 	}
 	button:disabled {
-		opacity: 0.6;
+		opacity: 0.55;
 		cursor: not-allowed;
 	}
 

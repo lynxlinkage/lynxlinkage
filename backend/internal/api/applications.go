@@ -107,7 +107,19 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 		IPAddress: c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
 	}
-	id, err := s.Applications.Create(c.Request.Context(), app)
+
+	// Stamp the row with the current default status so it appears in
+	// HR's "unread" bucket immediately. If the lookup fails we still
+	// accept the submission — better to have a status-less row than
+	// to drop a candidate's application on the floor.
+	var defaultStatusID int64
+	if def, err := s.Statuses.GetDefault(c.Request.Context()); err == nil {
+		defaultStatusID = def.ID
+	} else if !store.IsNoRows(err) {
+		s.Logger.Warn("apply: load default status", "err", err)
+	}
+
+	id, err := s.Applications.Create(c.Request.Context(), app, defaultStatusID)
 	if err != nil {
 		s.Logger.Error("apply: create row", "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
@@ -171,25 +183,34 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 }
 
 func (s *Server) handleAdminListApplications(c *gin.Context) {
-	var jobID int64
+	var filter store.ListFilter
 	if v := strings.TrimSpace(c.Query("jobId")); v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil || n <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jobId"})
 			return
 		}
-		jobID = n
+		filter.JobID = n
 	}
-	limit := 200
+	if v := strings.TrimSpace(c.Query("statusId")); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid statusId"})
+			return
+		}
+		filter.StatusID = n
+	}
+	filter.Sort = strings.TrimSpace(c.Query("sort"))
 	if v := strings.TrimSpace(c.Query("limit")); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
 			return
 		}
-		limit = n
+		filter.Limit = n
 	}
-	items, err := s.Applications.List(c.Request.Context(), jobID, limit)
+
+	items, err := s.Applications.List(c.Request.Context(), filter)
 	if err != nil {
 		s.Logger.Error("admin list applications", "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
@@ -221,6 +242,81 @@ func (s *Server) handleAdminGetApplication(c *gin.Context) {
 		return
 	}
 	app.Files = files
+
+	history, err := s.Applications.ListEvents(c.Request.Context(), id)
+	if err != nil {
+		s.Logger.Error("admin list app history", "err", err, "id", id)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	app.History = history
+
+	c.JSON(http.StatusOK, app)
+}
+
+type updateStatusRequest struct {
+	StatusID int64  `json:"statusId" binding:"required"`
+	Note     string `json:"note"`
+}
+
+func (s *Server) handleAdminUpdateApplicationStatus(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid application id"})
+		return
+	}
+	var req updateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if req.StatusID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "statusId is required"})
+		return
+	}
+	if len(req.Note) > 500 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "note must be ≤ 500 chars"})
+		return
+	}
+
+	actor := actorID(c)
+	event, err := s.Applications.UpdateStatus(c.Request.Context(), id, req.StatusID, actor, strings.TrimSpace(req.Note))
+	switch {
+	case err == nil:
+	case errors.Is(err, store.ErrSameStatus):
+		// Idempotent no-op: the row is already in the requested state.
+		// Returning the current application keeps the UI's "save"
+		// behaviour identical to the success path.
+	case store.IsNoRows(err):
+		c.JSON(http.StatusNotFound, gin.H{"error": "application or status not found"})
+		return
+	case errors.Is(err, store.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "application or status not found"})
+		return
+	default:
+		s.Logger.Error("admin update status", "err", err, "app_id", id, "status_id", req.StatusID)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+
+	app, err := s.Applications.Get(c.Request.Context(), id)
+	if err != nil {
+		s.Logger.Error("admin reload after status", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	files, err := s.Applications.ListFiles(c.Request.Context(), id)
+	if err == nil {
+		app.Files = files
+	}
+	history, err := s.Applications.ListEvents(c.Request.Context(), id)
+	if err == nil {
+		app.History = history
+	}
+	if event != nil {
+		s.Logger.Info("application status changed",
+			"app_id", id, "to_status_id", req.StatusID, "actor_id", actor)
+	}
 	c.JSON(http.StatusOK, app)
 }
 

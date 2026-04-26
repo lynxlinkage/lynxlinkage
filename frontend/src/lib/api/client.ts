@@ -1,5 +1,8 @@
 import type {
 	Application,
+	ApplicationListFilter,
+	ApplicationStatus,
+	ApplicationStatusUpsertPayload,
 	ContactPayload,
 	JobPosting,
 	JobUpsertPayload,
@@ -173,16 +176,32 @@ export async function submitApplication(
 	}
 }
 
-export async function adminListApplications(jobId?: number): Promise<Application[]> {
-	const qs = jobId ? `?jobId=${jobId}` : '';
-	const body = await request<ListResponse<Application>>(`/api/v1/admin/applications${qs}`, {
-		method: 'GET'
-	});
+export async function adminListApplications(
+	filter: ApplicationListFilter = {}
+): Promise<Application[]> {
+	const qs = new URLSearchParams();
+	if (filter.jobId) qs.set('jobId', String(filter.jobId));
+	if (filter.statusId) qs.set('statusId', String(filter.statusId));
+	if (filter.sort) qs.set('sort', filter.sort);
+	if (filter.limit) qs.set('limit', String(filter.limit));
+	const path = `/api/v1/admin/applications${qs.size ? `?${qs.toString()}` : ''}`;
+	const body = await request<ListResponse<Application>>(path, { method: 'GET' });
 	return body.items ?? [];
 }
 
 export async function adminGetApplication(id: number): Promise<Application> {
 	return request<Application>(`/api/v1/admin/applications/${id}`, { method: 'GET' });
+}
+
+export async function adminUpdateApplicationStatus(
+	applicationId: number,
+	statusId: number,
+	note?: string
+): Promise<Application> {
+	return request<Application>(`/api/v1/admin/applications/${applicationId}/status`, {
+		method: 'PUT',
+		body: JSON.stringify({ statusId, note: note ?? '' })
+	});
 }
 
 /**
@@ -192,4 +211,34 @@ export async function adminGetApplication(id: number): Promise<Application> {
  */
 export function applicationFileUrl(applicationId: number, fileId: number): string {
 	return `/api/v1/admin/applications/${applicationId}/files/${fileId}`;
+}
+
+export async function adminListStatuses(): Promise<ApplicationStatus[]> {
+	const body = await request<ListResponse<ApplicationStatus>>('/api/v1/admin/application-statuses', {
+		method: 'GET'
+	});
+	return body.items ?? [];
+}
+
+export async function adminCreateStatus(
+	payload: ApplicationStatusUpsertPayload
+): Promise<ApplicationStatus> {
+	return request<ApplicationStatus>('/api/v1/admin/application-statuses', {
+		method: 'POST',
+		body: JSON.stringify(payload)
+	});
+}
+
+export async function adminUpdateStatus(
+	id: number,
+	payload: ApplicationStatusUpsertPayload
+): Promise<ApplicationStatus> {
+	return request<ApplicationStatus>(`/api/v1/admin/application-statuses/${id}`, {
+		method: 'PUT',
+		body: JSON.stringify(payload)
+	});
+}
+
+export async function adminDeleteStatus(id: number): Promise<void> {
+	await request<void>(`/api/v1/admin/application-statuses/${id}`, { method: 'DELETE' });
 }
