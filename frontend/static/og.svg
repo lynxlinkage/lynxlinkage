@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+	<defs>
+		<pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+			<circle cx="2" cy="2" r="1.2" fill="#0B2A6B" opacity="0.10"/>
+		</pattern>
+	</defs>
+	<rect width="1200" height="630" fill="#FFFFFF"/>
+	<rect width="1200" height="630" fill="url(#dots)"/>
+	<g transform="translate(80, 80)">
+		<rect width="64" height="64" rx="12" fill="#0B2A6B"/>
+		<path d="M18 46V18h4v22h14v6z" fill="#FFFFFF"/>
+		<path d="M40 18h6l6 28h-4l-5-18.5L36 46h-4z" fill="#FFFFFF" opacity="0.85"/>
+	</g>
+	<text x="80" y="320" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B1220" letter-spacing="-2">
+		Quantitative trading,
+	</text>
+	<text x="80" y="400" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B2A6B" letter-spacing="-2">
+		with research at the core.
+	</text>
+	<text x="80" y="540" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500" fill="#5A6478" letter-spacing="0.04em">
+		lynxlinkage.com
+	</text>
+</svg>

@@ -1,0 +1,89 @@
+// Package static serves the prerendered SvelteKit build. In production the
+// SvelteKit static export is embedded into the binary at build time (see
+// `embed` build tag below). In development the embed.FS is empty and the
+// frontend is served by the Vite dev server on its own port; the Go server
+// then returns 404 for non-API routes, which is fine because the user
+// hits Vite directly.
+//
+// To produce a production binary that contains the frontend run:
+//
+//	cd frontend && pnpm build
+//	cd backend  && go build -tags=embed ./cmd/server
+package static
+
+import (
+	"io/fs"
+	"net/http"
+	"path"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Handler returns a Gin handler that serves files from fsys with SPA-style
+// fallback: any request that doesn't match a real file falls back to
+// index.html so client-side routes still resolve. /api/* requests are
+// expected to be handled before this catch-all.
+//
+// When fsys is empty (development build without -tags=embed), the handler
+// responds with 404 and a hint to use the Vite dev server.
+func Handler(fsys fs.FS) gin.HandlerFunc {
+	if fsys == nil {
+		return devFallback
+	}
+	if entries, err := fs.ReadDir(fsys, "."); err != nil || len(entries) == 0 {
+		return devFallback
+	}
+
+	fileServer := http.FileServer(http.FS(fsys))
+
+	return func(c *gin.Context) {
+		req := c.Request
+		urlPath := strings.TrimPrefix(req.URL.Path, "/")
+		if urlPath == "" {
+			urlPath = "index.html"
+		}
+
+		if !fileExists(fsys, urlPath) {
+			// Try /<path>.html for SvelteKit's prerendered routes.
+			if fileExists(fsys, urlPath+".html") {
+				urlPath = urlPath + ".html"
+			} else if fileExists(fsys, path.Join(urlPath, "index.html")) {
+				urlPath = path.Join(urlPath, "index.html")
+			} else {
+				urlPath = "index.html"
+			}
+		}
+
+		// Cache hashed assets aggressively, keep HTML uncached.
+		if strings.HasPrefix(urlPath, "_app/") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		} else if strings.HasSuffix(urlPath, ".html") {
+			c.Header("Cache-Control", "no-cache")
+		}
+
+		req2 := req.Clone(req.Context())
+		req2.URL.Path = "/" + urlPath
+		fileServer.ServeHTTP(c.Writer, req2)
+	}
+}
+
+func fileExists(fsys fs.FS, name string) bool {
+	f, err := fsys.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return !st.IsDir()
+}
+
+func devFallback(c *gin.Context) {
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusNotFound,
+		"frontend not embedded; run `pnpm dev` in frontend/ for development "+
+			"or build with `-tags=embed` for production.\n")
+}

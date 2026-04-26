@@ -1,0 +1,38 @@
+partners:
+  - name: "Example Strategic Partner A"
+    logo_url: "/images/partners/strategic-a.svg"
+    website_url: "https://example.com"
+    tier: "strategic"
+    description: "Long-term strategic partner."
+    display_order: 10
+
+  - name: "Example Strategic Partner B"
+    logo_url: "/images/partners/strategic-b.svg"
+    website_url: "https://example.com"
+    tier: "strategic"
+    display_order: 20
+
+  - name: "Example Exchange A"
+    logo_url: "/images/partners/exchange-a.svg"
+    website_url: "https://example.com"
+    tier: "exchange"
+    display_order: 10
+
+  - name: "Example Exchange B"
+    logo_url: "/images/partners/exchange-b.svg"
+    website_url: "https://example.com"
+    tier: "exchange"
+    display_order: 20
+
+  - name: "Example Broker A"
+    logo_url: "/images/partners/broker-a.svg"
+    website_url: "https://example.com"
+    tier: "broker"
+    display_order: 10
+
+  - name: "Example Tech Partner A"
+    logo_url: "/images/partners/tech-a.svg"
+    website_url: "https://example.com"
+    tier: "tech"
+    description: "Cloud / data infrastructure partner."
+    display_order: 10

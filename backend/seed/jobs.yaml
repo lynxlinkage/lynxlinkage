@@ -1,0 +1,57 @@
+jobs:
+  - id: 1
+    title: "Quantitative Researcher"
+    team: "Research"
+    location: "Singapore / Remote"
+    employment_type: "full_time"
+    description_md: |
+      We are looking for a quantitative researcher to design, prototype and
+      productionise systematic trading strategies across crypto and traditional
+      markets.
+
+      ### What you will do
+      - Design alpha signals from market and alternative data.
+      - Backtest, validate and risk-manage strategies end-to-end.
+      - Collaborate closely with engineering on the live trading stack.
+
+      ### About you
+      - Strong foundations in statistics, probability and time-series modelling.
+      - Proficiency in Python; bonus for Rust, C++ or Go.
+      - You care about scientific rigour and reproducibility.
+    apply_url_or_email: "careers@lynxlinkage.com"
+    posted_at: "2026-04-10"
+    is_active: true
+
+  - id: 2
+    title: "Trading Systems Engineer"
+    team: "Engineering"
+    location: "Singapore"
+    employment_type: "full_time"
+    description_md: |
+      Build and operate the low-latency execution stack that powers our
+      trading strategies across multiple venues.
+
+      ### What you will do
+      - Own services on the critical path: order routing, market data, risk.
+      - Profile and optimise hot paths in Go / Rust / C++.
+      - Design observability that makes the unobservable observable.
+
+      ### About you
+      - Comfortable with concurrent systems and lock-free data structures.
+      - Pragmatic about trade-offs between latency, throughput and clarity.
+    apply_url_or_email: "careers@lynxlinkage.com"
+    posted_at: "2026-04-02"
+    is_active: true
+
+  - id: 3
+    title: "Research Engineer (Internship)"
+    team: "Research"
+    location: "Remote"
+    employment_type: "internship"
+    description_md: |
+      A 3-month internship working alongside our quant researchers. You will
+      ship a research project end-to-end, from data collection to a written
+      research note.
+    apply_url_or_email: "https://lynxlinkage.com/apply/intern-2026"
+    posted_at: "2026-03-25"
+    is_active: true
