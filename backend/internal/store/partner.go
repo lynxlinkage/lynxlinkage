@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
@@ -51,4 +53,28 @@ func (r *PartnerRepo) Upsert(ctx context.Context, p *domain.Partner) error {
     `
 	_, err := r.db.NamedExecContext(ctx, q, p)
 	return err
+}
+
+// DeleteNotInNames removes rows whose name is not in keep. If keep is empty, all
+// partners are removed. Used by seed so the DB matches the YAML set.
+func (r *PartnerRepo) DeleteNotInNames(ctx context.Context, keep []string) (int64, error) {
+	if len(keep) == 0 {
+		res, err := r.db.ExecContext(ctx, `DELETE FROM partners`)
+		if err != nil {
+			return 0, err
+		}
+		return res.RowsAffected()
+	}
+	ph := make([]string, len(keep))
+	args := make([]any, len(keep))
+	for i, name := range keep {
+		ph[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = name
+	}
+	q := `DELETE FROM partners WHERE name NOT IN (` + strings.Join(ph, ", ") + `)`
+	res, err := r.db.ExecContext(ctx, q, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

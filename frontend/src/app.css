@@ -2,6 +2,8 @@
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
 @import './lib/styles/tokens.css';
 
 *,
@@ -11,7 +13,10 @@
 }
 
 html {
+	color-scheme: dark;
 	-webkit-text-size-adjust: 100%;
+	tab-size: 4;
+	-webkit-tap-highlight-color: transparent;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
@@ -23,10 +28,11 @@ body {
 	min-height: 100dvh;
 	background: var(--bg);
 	color: var(--text);
-	font-family: var(--font-sans);
+	font-family: var(--default-font-family);
 	font-size: var(--text-base);
-	line-height: 1.6;
-	font-feature-settings: 'cv11', 'ss01', 'tnum';
+	line-height: var(--text-base--line-height);
+	font-feature-settings: var(--font-sans--font-feature-settings);
+	font-variation-settings: normal;
 }
 
 h1,
@@ -95,8 +101,16 @@ button {
 }
 
 ::selection {
-	background: var(--accent-soft);
-	color: var(--accent-strong);
+	background: color-mix(in oklch, var(--color-indigo-500) 45%, transparent);
+	color: var(--color-white);
+}
+
+code,
+kbd,
+samp,
+pre {
+	font-family: var(--default-mono-font-family);
+	font-feature-settings: var(--font-mono--font-feature-settings);
 }
 
 .container {

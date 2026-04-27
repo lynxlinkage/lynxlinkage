@@ -440,14 +440,14 @@
 		border-radius: 4px;
 	}
 	.apply__file-remove:hover {
-		color: #b91c1c;
+		color: var(--danger);
 	}
 
 	.apply__error {
 		padding: 0.7rem 0.9rem;
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #b91c1c;
+		background: var(--danger-soft);
+		border: 1px solid color-mix(in oklch, var(--danger) 45%, var(--color-gray-800));
+		color: var(--color-rose-200);
 		border-radius: var(--radius-sm, 6px);
 		font-size: var(--text-sm);
 	}

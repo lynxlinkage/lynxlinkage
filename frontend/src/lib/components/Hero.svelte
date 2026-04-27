@@ -62,9 +62,8 @@
 	.hero__pattern {
 		position: absolute;
 		inset: 0;
-		background:
-			radial-gradient(circle at 1px 1px, rgba(11, 42, 107, 0.08) 1px, transparent 1.5px) 0 0 / 28px
-				28px;
+		background: radial-gradient(circle at 1px 1px, var(--grid-line-color) 1px, transparent 1.5px) 0
+			0 / 28px 28px;
 		mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 70%, transparent 100%);
 		-webkit-mask-image: linear-gradient(
 			to bottom,

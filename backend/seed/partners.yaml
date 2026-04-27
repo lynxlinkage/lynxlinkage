@@ -1,38 +1,31 @@
 partners:
-  - name: "Example Strategic Partner A"
-    logo_url: "/images/partners/strategic-a.svg"
-    website_url: "https://example.com"
+  - name: "NYCU Institute of Statistics"
+    logo_url: "/images/partners/stat.png"
+    website_url: "https://stat.nycu.edu.tw/"
     tier: "strategic"
-    description: "Long-term strategic partner."
-    display_order: 10
+    description: "Institute of Statistics, National Yang Ming Chiao Tung University."
+    display_order: 5
 
-  - name: "Example Strategic Partner B"
-    logo_url: "/images/partners/strategic-b.svg"
-    website_url: "https://example.com"
-    tier: "strategic"
-    display_order: 20
-
-  - name: "Example Exchange A"
-    logo_url: "/images/partners/exchange-a.svg"
-    website_url: "https://example.com"
+  - name: "Binance"
+    logo_url: "/images/partners/binance.svg"
+    website_url: "https://www.binance.com"
     tier: "exchange"
-    display_order: 10
+    display_order: 5
 
-  - name: "Example Exchange B"
-    logo_url: "/images/partners/exchange-b.svg"
-    website_url: "https://example.com"
+  - name: "Bybit"
+    logo_url: "/images/partners/bybit.svg"
+    website_url: "https://www.bybit.com"
     tier: "exchange"
-    display_order: 20
+    display_order: 6
 
-  - name: "Example Broker A"
-    logo_url: "/images/partners/broker-a.svg"
-    website_url: "https://example.com"
-    tier: "broker"
-    display_order: 10
+  - name: "Zoomex"
+    logo_url: "/images/partners/zoomex.svg"
+    website_url: "https://www.zoomex.com"
+    tier: "exchange"
+    display_order: 7
 
-  - name: "Example Tech Partner A"
-    logo_url: "/images/partners/tech-a.svg"
-    website_url: "https://example.com"
-    tier: "tech"
-    description: "Cloud / data infrastructure partner."
-    display_order: 10
+  - name: "Bitget"
+    logo_url: "/images/partners/bitget.svg"
+    website_url: "https://www.bitget.com"
+    tier: "exchange"
+    display_order: 8

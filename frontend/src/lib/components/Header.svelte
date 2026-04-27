@@ -96,9 +96,9 @@
 		right: 0;
 		z-index: 50;
 		height: var(--header-height);
-		background: rgba(255, 255, 255, 0.7);
-		backdrop-filter: saturate(140%) blur(10px);
-		-webkit-backdrop-filter: saturate(140%) blur(10px);
+		background: color-mix(in oklch, var(--bg) 78%, transparent);
+		backdrop-filter: saturate(140%) blur(var(--blur-sm));
+		-webkit-backdrop-filter: saturate(140%) blur(var(--blur-sm));
 		border-bottom: 1px solid transparent;
 		transition:
 			background-color 160ms var(--ease-out),
@@ -106,7 +106,7 @@
 			box-shadow 160ms var(--ease-out);
 	}
 	.header--scrolled {
-		background: rgba(255, 255, 255, 0.92);
+		background: color-mix(in oklch, var(--bg) 92%, transparent);
 		border-bottom-color: var(--border);
 		box-shadow: var(--shadow-sm);
 	}

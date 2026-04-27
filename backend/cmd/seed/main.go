@@ -1,6 +1,8 @@
 // Command seed loads YAML files from backend/seed/ into the database. It is
 // idempotent: each entity is upserted by primary key (or unique name for
 // partners) so re-running the command updates rather than duplicates.
+// Partner rows are also pruned: any name not present in the seed files is
+// removed from the database.
 //
 // Usage:
 //
@@ -106,7 +108,11 @@ func run(dir string, logger *slog.Logger) error {
 	jRepo := store.NewJobRepo(db)
 	pRepo := store.NewPartnerRepo(db)
 
-	totals := struct{ R, J, P int }{}
+	loaded := make([]struct {
+		path string
+		s    seedFile
+	}, 0, len(files))
+	partnerNames := make([]string, 0, 32)
 	for _, f := range files {
 		raw, err := os.ReadFile(f)
 		if err != nil {
@@ -116,6 +122,21 @@ func run(dir string, logger *slog.Logger) error {
 		if err := yaml.Unmarshal(raw, &s); err != nil {
 			return fmt.Errorf("yaml %s: %w", f, err)
 		}
+		loaded = append(loaded, struct {
+			path string
+			s    seedFile
+		}{f, s})
+		for _, p := range s.Partners {
+			partnerNames = append(partnerNames, p.Name)
+		}
+	}
+	if _, err := pRepo.DeleteNotInNames(ctx, partnerNames); err != nil {
+		return fmt.Errorf("prune partners: %w", err)
+	}
+
+	totals := struct{ R, J, P int }{}
+	for _, item := range loaded {
+		f, s := item.path, item.s
 
 		for _, r := range s.Researches {
 			t, err := parseDate(r.PublishedAt)

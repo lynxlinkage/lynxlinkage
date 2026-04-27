@@ -9,7 +9,7 @@
 		<div class="footer__brand">
 			<div class="footer__name">{site.name}</div>
 			<p class="footer__tag">{site.tagline}</p>
-			<p class="footer__locations">{site.locations.join(' &middot; ')}</p>
+			<p class="footer__locations">{site.locations.join(' · ')}</p>
 		</div>
 
 		<nav aria-label="Footer">
