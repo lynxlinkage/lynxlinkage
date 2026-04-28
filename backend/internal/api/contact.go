@@ -61,6 +61,7 @@ func (s *Server) handleSubmitContact(c *gin.Context) {
 	}
 	s.Logger.Info("contact submitted", "id", id, "kind", kind, "email", sub.Email)
 	s.sendContactAck(sub.Name, sub.Email)
+	s.sendContactStaffNotify(id, sub)
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
@@ -80,5 +81,41 @@ func (s *Server) sendContactAck(name, to string) {
 			return
 		}
 		s.Logger.Info("contact: ack email sent", "to", recipient)
+	}()
+}
+
+// sendContactStaffNotify emails eddy@lynxlinkage.com with submission details for follow-up.
+func (s *Server) sendContactStaffNotify(id int64, sub *domain.ContactSubmission) {
+	if s.Mail == nil || !s.Mail.Ready() {
+		return
+	}
+	subject := mailout.ContactStaffSubject(id, string(sub.Kind))
+	plain := mailout.ContactStaffPlain(
+		id,
+		sub.Name,
+		sub.Email,
+		sub.Company,
+		string(sub.Kind),
+		sub.Message,
+		sub.IPAddress,
+		sub.UserAgent,
+	)
+	html := mailout.ContactStaffHTML(
+		id,
+		sub.Name,
+		sub.Email,
+		sub.Company,
+		string(sub.Kind),
+		sub.Message,
+		sub.IPAddress,
+		sub.UserAgent,
+	)
+	to := mailout.ContactStaffRecipient
+	go func() {
+		if err := s.Mail.SendAlternative(to, subject, plain, html); err != nil {
+			s.Logger.Error("contact: staff notify email", "err", err, "to", to)
+			return
+		}
+		s.Logger.Info("contact: staff notify email sent", "to", to, "submission_id", id)
 	}()
 }
