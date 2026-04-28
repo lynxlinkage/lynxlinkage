@@ -17,7 +17,7 @@ COPY frontend/ .
 RUN if [ -f pnpm-lock.yaml ]; then pnpm build; else npm run build; fi
 
 # ---- Stage 2: build the Go backend with embedded frontend ----
-FROM golang:1.24-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 WORKDIR /src
 
 COPY backend/go.mod backend/go.sum ./backend/
