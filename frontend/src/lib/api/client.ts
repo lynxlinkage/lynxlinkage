@@ -99,6 +99,15 @@ export async function fetchMe(): Promise<User | null> {
 	}
 }
 
+export async function fetchJob(id: string | number): Promise<JobPosting | null> {
+	try {
+		return await request<JobPosting>(`/api/v1/jobs/${id}`);
+	} catch (err) {
+		if (err instanceof ApiError && err.status === 404) return null;
+		throw err;
+	}
+}
+
 export async function adminListJobs(): Promise<JobPosting[]> {
 	const body = await request<ListResponse<JobPosting>>('/api/v1/admin/jobs', { method: 'GET' });
 	return body.items ?? [];
