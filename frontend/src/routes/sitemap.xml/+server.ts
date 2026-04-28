@@ -2,7 +2,7 @@ import { site } from '$lib/site';
 
 export const prerender = true;
 
-const PATHS = ['/', '/about', '/researches', '/hiring', '/partners'] as const;
+const PATHS = ['/', '/about', '/hiring', '/partners'] as const;
 
 export function GET() {
 	const today = new Date().toISOString().slice(0, 10);

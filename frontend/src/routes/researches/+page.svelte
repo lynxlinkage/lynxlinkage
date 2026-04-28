@@ -27,14 +27,18 @@
 	}
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <Seo
-	title="Public researches"
+	title="Research"
 	description="Selected research notes from the LynxLinkage research desk on market microstructure, volatility, and infrastructure."
 	path="/researches"
 />
 
 <Hero
-	eyebrow="Public researches"
+	eyebrow="Research"
 	title="Notes from the research desk."
 	subtitle="A curated stream of writing on market microstructure, volatility, and the infrastructure that connects them."
 />

@@ -24,3 +24,13 @@ func TestApplicationAckSubject(t *testing.T) {
 		t.Fatalf("subject: %q", s)
 	}
 }
+
+func TestContactAckBody(t *testing.T) {
+	body := ContactAckBody("Jordan", "LynxLinkage")
+	if !strings.Contains(body, "Jordan") || !strings.Contains(body, "received your message") {
+		t.Fatalf("body: %q", body)
+	}
+	if !strings.Contains(body, "No reply to this message") {
+		t.Fatalf("body should state noreply: %q", body)
+	}
+}

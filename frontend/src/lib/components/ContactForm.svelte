@@ -84,7 +84,7 @@
 
 		<label class="field">
 			<span>Message</span>
-			<textarea bind:value={message} required minlength="10" maxlength="5000" rows="5"></textarea>
+			<textarea bind:value={message} required minlength="3" maxlength="5000" rows="5"></textarea>
 		</label>
 
 		<div class="contact__footer">

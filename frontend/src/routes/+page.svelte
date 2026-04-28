@@ -2,7 +2,6 @@
 	import type { PageData } from './$types';
 	import Hero from '$lib/components/Hero.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import ResearchCard from '$lib/components/ResearchCard.svelte';
 	import JobCard from '$lib/components/JobCard.svelte';
 	import LogoWall from '$lib/components/LogoWall.svelte';
 	import ContactForm from '$lib/components/ContactForm.svelte';
@@ -24,7 +23,7 @@
 	subtitle="We are a agile team of researchers and engineers building systematic stat-arb strategies for digital-asset markets &mdash; cross-venue, basis, funding, and cointegrated pairs. We publish what we learn, hire technically deep people, and partner with the venues we depend on."
 >
 	{#snippet cta()}
-		<Button href="/researches" variant="primary" size="lg">Read our research</Button>
+		<Button href="/about" variant="primary" size="lg">About us</Button>
 		<Button href="/hiring" variant="secondary" size="lg">See open roles</Button>
 	{/snippet}
 </Hero>
@@ -47,28 +46,6 @@
 <section class="section">
 	<div class="container">
 		<div class="section-heading">
-			<span class="eyebrow">Public researches</span>
-			<h2>Selected pieces from our research desk.</h2>
-			<p>We publish what we can &mdash; sometimes on Medium, sometimes on our own site.</p>
-		</div>
-		{#if data.researches.length}
-			<div class="grid">
-				{#each data.researches as card (card.id)}
-					<ResearchCard {card} />
-				{/each}
-			</div>
-		{:else}
-			<p class="muted">Research notes will appear here soon.</p>
-		{/if}
-		<div class="section__cta">
-			<Button href="/researches" variant="ghost">Browse all research &rarr;</Button>
-		</div>
-	</div>
-</section>
-
-<section class="section section--surface">
-	<div class="container">
-		<div class="section-heading">
 			<span class="eyebrow">Hiring</span>
 			<h2>Build the systems that trade markets.</h2>
 			<p>We hire deeply technical people who care about the craft.</p>
@@ -88,7 +65,7 @@
 	</div>
 </section>
 
-<section class="section">
+<section class="section section--surface">
 	<div class="container">
 		<div class="section-heading">
 			<span class="eyebrow">Partners</span>
