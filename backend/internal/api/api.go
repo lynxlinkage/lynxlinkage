@@ -32,9 +32,10 @@ type Server struct {
 	ContactRL    *middleware.IPRateLimiter
 	ApplyRL      *middleware.IPRateLimiter
 	Auth         *auth.Manager
-	Mail         *mailout.Config
-	AppName      string
-	SiteURL      string
+	Mail           *mailout.Config
+	AppName        string
+	SiteURL        string
+	ContactStaffTo string
 
 	// Upload limits surfaced from config so handlers don't reach back
 	// into env-loading code.

@@ -60,62 +60,62 @@ func (s *Server) handleSubmitContact(c *gin.Context) {
 		return
 	}
 	s.Logger.Info("contact submitted", "id", id, "kind", kind, "email", sub.Email)
-	s.sendContactAck(sub.Name, sub.Email)
-	s.sendContactStaffNotify(id, sub)
+	s.sendContactEmails(id, sub)
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
-// sendContactAck emails the visitor a receipt after storing the submission.
-// Failures are logged only; HTTP success is already assured.
-func (s *Server) sendContactAck(name, to string) {
+// sendContactEmails sends (1) a receipt to the submitter and (2) a staff
+// notification. If SMTP is not fully configured, both are skipped and a WARN
+// is logged so operators know why inbox is silent.
+func (s *Server) sendContactEmails(id int64, sub *domain.ContactSubmission) {
 	if s.Mail == nil || !s.Mail.Ready() {
+		s.Logger.Warn("contact: outgoing email skipped",
+			"reason", "SMTP not configured or incomplete",
+			"hint", "Set EMAIL_FROM, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS — check server logs at startup for smtp warnings",
+		)
 		return
 	}
-	subject := mailout.ContactAckSubject()
-	plain := mailout.ContactAckBody(name, s.AppName)
-	html := mailout.ContactAckHTML(name, s.AppName, s.SiteURL)
-	recipient := to
-	go func() {
-		if err := s.Mail.SendAlternative(recipient, subject, plain, html); err != nil {
-			s.Logger.Error("contact: ack email", "err", err, "to", recipient)
-			return
-		}
-		s.Logger.Info("contact: ack email sent", "to", recipient)
-	}()
-}
 
-// sendContactStaffNotify emails eddy@lynxlinkage.com with submission details for follow-up.
-func (s *Server) sendContactStaffNotify(id int64, sub *domain.ContactSubmission) {
-	if s.Mail == nil || !s.Mail.Ready() {
-		return
+	staffTo := strings.TrimSpace(s.ContactStaffTo)
+	if staffTo == "" {
+		staffTo = mailout.ContactStaffRecipient
 	}
-	subject := mailout.ContactStaffSubject(id, string(sub.Kind))
-	plain := mailout.ContactStaffPlain(
-		id,
-		sub.Name,
-		sub.Email,
-		sub.Company,
-		string(sub.Kind),
-		sub.Message,
-		sub.IPAddress,
-		sub.UserAgent,
-	)
-	html := mailout.ContactStaffHTML(
-		id,
-		sub.Name,
-		sub.Email,
-		sub.Company,
-		string(sub.Kind),
-		sub.Message,
-		sub.IPAddress,
-		sub.UserAgent,
-	)
-	to := mailout.ContactStaffRecipient
+
 	go func() {
-		if err := s.Mail.SendAlternative(to, subject, plain, html); err != nil {
-			s.Logger.Error("contact: staff notify email", "err", err, "to", to)
-			return
+		ackSubject := mailout.ContactAckSubject()
+		ackPlain := mailout.ContactAckBody(sub.Name, s.AppName)
+		ackHTML := mailout.ContactAckHTML(sub.Name, s.AppName, s.SiteURL)
+		if err := s.Mail.SendAlternative(sub.Email, ackSubject, ackPlain, ackHTML); err != nil {
+			s.Logger.Error("contact: ack email failed", "err", err, "to", sub.Email)
+		} else {
+			s.Logger.Info("contact: ack email sent", "to", sub.Email)
 		}
-		s.Logger.Info("contact: staff notify email sent", "to", to, "submission_id", id)
+
+		staffSubject := mailout.ContactStaffSubject(id, string(sub.Kind))
+		staffPlain := mailout.ContactStaffPlain(
+			id,
+			sub.Name,
+			sub.Email,
+			sub.Company,
+			string(sub.Kind),
+			sub.Message,
+			sub.IPAddress,
+			sub.UserAgent,
+		)
+		staffHTML := mailout.ContactStaffHTML(
+			id,
+			sub.Name,
+			sub.Email,
+			sub.Company,
+			string(sub.Kind),
+			sub.Message,
+			sub.IPAddress,
+			sub.UserAgent,
+		)
+		if err := s.Mail.SendAlternative(staffTo, staffSubject, staffPlain, staffHTML); err != nil {
+			s.Logger.Error("contact: staff notify email failed", "err", err, "to", staffTo)
+		} else {
+			s.Logger.Info("contact: staff notify email sent", "to", staffTo, "submission_id", id)
+		}
 	}()
 }

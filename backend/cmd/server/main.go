@@ -99,6 +99,7 @@ func run() error {
 		Mail:                mailer,
 		AppName:             cfg.AppName,
 		SiteURL:             cfg.SiteURL,
+		ContactStaffTo:      cfg.ContactStaffTo,
 		MaxUploadFiles:      cfg.MaxUploadFiles,
 		MaxUploadFileBytes:  cfg.MaxUploadFileBytes,
 		MaxUploadTotalBytes: cfg.MaxUploadTotalBytes,

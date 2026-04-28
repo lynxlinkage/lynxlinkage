@@ -59,6 +59,10 @@ type Config struct {
 	// SiteURL is the public https origin (no trailing slash), used in HTML
 	// emails for absolute asset and link URLs.
 	SiteURL string
+
+	// ContactStaffTo receives internal notifications when someone submits the
+	// public contact form (in addition to the auto-reply to the submitter).
+	ContactStaffTo string
 }
 
 // Load reads configuration from environment variables, applying defaults
@@ -172,6 +176,8 @@ func Load() (Config, error) {
 	cfg.AppName = getEnv("APP_NAME", "LynxLinkage")
 
 	cfg.SiteURL = strings.TrimSuffix(strings.TrimSpace(getEnv("SITE_URL", "https://lynxlinkage.com")), "/")
+
+	cfg.ContactStaffTo = strings.TrimSpace(getEnv("CONTACT_STAFF_TO", "eddy@lynxlinkage.com"))
 
 	return cfg, nil
 }
