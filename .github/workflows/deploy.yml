@@ -1,0 +1,170 @@
+# Deploy after a successful "Build and Push Docker Images" run on main.
+#
+# Repository secrets:
+#   SSH_PRIVATE_KEY   — PEM for SSH to the server
+#   DEPLOY_HOST       — hostname or IP
+#
+# Optional secrets:
+#   DISCORD_WEBHOOK — for success/failure Discord embeds
+#
+# Optional repository variables:
+#   DEPLOY_PATH — remote dir with docker-compose (default in script: /root/lynxlinkage)
+#
+# Edit the ssh-action `username:` field if you deploy as a non-root user.
+#
+# The remote stack should define a service named `app` (see root docker-compose.yml)
+# pulling `ghcr.io/<owner>/lynxlinkage`; adjust pull/up targets if yours differs.
+
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy to production server
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
+            DEPLOY_PATH="${DEPLOY_PATH:-/root/lynxlinkage}"
+            cd "${DEPLOY_PATH}"
+            if [ -f env.sh ]; then
+              # shellcheck disable=SC1091
+              source env.sh
+            fi
+            echo "Pulling latest image..."
+            docker compose pull app
+            echo "Restarting LynxLinkage app..."
+            docker compose up -d app
+            echo "Cleaning up old dangling images..."
+            docker image prune -f
+            echo "Deployment completed successfully!"
+
+      - name: Send Discord notification (success)
+        if: success()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "✅ LynxLinkage deployment succeeded",
+                "description": "The app image has been pulled and restarted.",
+                "color": 3066993,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.event.workflow_run.head_branch }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Commit",
+                    "value": "[`${{ github.event.workflow_run.head_sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }})",
+                    "inline": false
+                  },
+                  {
+                    "name": "Triggered by",
+                    "value": "${{ github.event.workflow_run.actor.login }}",
+                    "inline": true
+                  }
+                ],
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' \
+            "$WEBHOOK"
+
+      - name: Send Discord notification (failure)
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "❌ LynxLinkage deployment failed",
+                "description": "SSH deploy or compose step failed.",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.event.workflow_run.head_branch }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Workflow run",
+                    "value": "[View logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                    "inline": false
+                  }
+                ],
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' \
+            "$WEBHOOK"
+
+  notify-build-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    steps:
+      - name: Send Discord notification (Docker build failed)
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "🔴 LynxLinkage Docker build failed",
+                "description": "Image build failed; deployment was skipped.",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.event.workflow_run.head_branch }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Workflow run",
+                    "value": "[View logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }})",
+                    "inline": false
+                  }
+                ],
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' \
+            "$WEBHOOK"
