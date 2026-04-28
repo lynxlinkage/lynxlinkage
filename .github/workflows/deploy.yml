@@ -25,6 +25,11 @@ on:
     branches:
       - main
 
+env:
+  SERVER_HOST: 172.237.19.123
+  SERVER_USER: root
+  DEPLOY_PATH: /root/lynxlinkage/deployment
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
