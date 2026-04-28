@@ -1,0 +1,31 @@
+partners:
+  - name: "NYCU Institute of Statistics"
+    logo_url: "/images/partners/stat.png"
+    website_url: "https://stat.nycu.edu.tw/"
+    tier: "strategic"
+    description: "Institute of Statistics, National Yang Ming Chiao Tung University."
+    display_order: 5
+
+  - name: "Binance"
+    logo_url: "/images/partners/binance.svg"
+    website_url: "https://www.binance.com"
+    tier: "exchange"
+    display_order: 5
+
+  - name: "Bybit"
+    logo_url: "/images/partners/bybit.svg"
+    website_url: "https://www.bybit.com"
+    tier: "exchange"
+    display_order: 6
+
+  - name: "Zoomex"
+    logo_url: "/images/partners/zoomex.svg"
+    website_url: "https://www.zoomex.com"
+    tier: "exchange"
+    display_order: 7
+
+  - name: "Bitget"
+    logo_url: "/images/partners/bitget.svg"
+    website_url: "https://www.bitget.com"
+    tier: "exchange"
+    display_order: 8

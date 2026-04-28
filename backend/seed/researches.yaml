@@ -1,0 +1,36 @@
+researches:
+  - id: 1
+    title: "Microstructure of On-Chain Order Books"
+    summary: "How AMMs and CLOBs converge during high-volatility regimes, with takeaways for liquidity provision."
+    tags: ["market microstructure", "defi", "liquidity"]
+    external_url: "https://medium.com/@lynxlinkage/microstructure-onchain-orderbooks"
+    source: "medium"
+    published_at: "2026-03-12"
+    display_order: 10
+
+  - id: 2
+    title: "Cross-Venue Latency Arbitrage in 2026"
+    summary: "An empirical look at venue-to-venue propagation delay and the diminishing edge for naive co-location strategies."
+    tags: ["latency", "arbitrage", "infrastructure"]
+    external_url: "https://research.lynxlinkage.com/posts/cross-venue-latency-2026"
+    source: "internal"
+    published_at: "2026-02-04"
+    display_order: 20
+
+  - id: 3
+    title: "Volatility Surfaces under Persistent Regime Shifts"
+    summary: "Calibrating local-stochastic vol models when macro regimes change faster than your prior."
+    tags: ["volatility", "options", "modelling"]
+    external_url: "https://medium.com/@lynxlinkage/vol-surfaces-regime-shifts"
+    source: "medium"
+    published_at: "2026-01-18"
+    display_order: 30
+
+  - id: 4
+    title: "A Practitioner's Guide to Funding Rates"
+    summary: "Why basis trades aren't free money: hidden costs, slippage, and the long tail of carry strategies."
+    tags: ["derivatives", "funding rates", "carry"]
+    external_url: "https://medium.com/@lynxlinkage/practitioners-guide-funding-rates"
+    source: "medium"
+    published_at: "2025-11-22"
+    display_order: 40

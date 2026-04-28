@@ -1,12 +1,17 @@
+# Dependencies
 node_modules
+.tools
 
-# Output
-.output
-.vercel
-.netlify
-.wrangler
+# Build outputs
 /.svelte-kit
-/build
+/frontend/build
+/frontend/.svelte-kit
+/backend/tmp
+/backend/build-errors.log
+/backend/data
+/backend/internal/static/dist/*
+!/backend/internal/static/dist/.gitkeep
+/bin
 
 # OS
 .DS_Store
@@ -18,6 +23,15 @@ Thumbs.db
 !.env.example
 !.env.test
 
-# Vite
+# Editor / Vite
+.vscode
+.idea
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Coverage / output
+coverage
+.output
+.vercel
+.netlify
+.wrangler

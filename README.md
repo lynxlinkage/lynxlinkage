@@ -1,38 +1,218 @@
-# sv
+# lynxlinkage landing page
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A monorepo containing the lynxlinkage marketing site.
 
-## Creating a project
+- `backend/` — Go 1.25+ + Gin, PostgreSQL via `jackc/pgx/v5` (pure Go,
+  no CGO), serves `/api/v1/*` and (when built with `-tags=embed`) the
+  prerendered SvelteKit frontend on every other path.
+- `frontend/` — SvelteKit 2 + Svelte 5 (runes), TypeScript, `adapter-static`.
+  Pages are prerendered to static HTML at build time.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Quick start
 
-```bash
-# create a new project in the current directory
-npx sv create
+```sh
+# 1. Install backend deps (Go modules)
+cd backend && go mod download && cd ..
 
-# create a new project in my-app
-npx sv create my-app
+# 2. Install frontend deps
+cd frontend && pnpm install   # or `npm install`
+cd ..
+
+# 3. Start PostgreSQL and seed (default URL matches `docker compose` db)
+make db
+# wait until: docker compose exec db pg_isready -U lynxlinkage
+make seed
+
+# 4. Run backend and frontend dev servers in parallel
+make dev
 ```
 
-## Developing
+- Backend listens on http://localhost:8080
+- Frontend Vite dev server on http://localhost:5173 (Vite proxies `/api/*` to 8080)
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Production build (single binary)
 
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```sh
+make build         # builds frontend + Go binary with frontend embedded
+./bin/lynxlinkage  # serves both the static site and the API on :8080
 ```
 
-## Building
+The production binary contains:
 
-To create a production version of your app:
+- The SvelteKit static export (under `backend/internal/static/dist/`,
+  embedded via `//go:embed`).
+- All API handlers and the PostgreSQL driver. The server reads
+  `DATABASE_URL` (a libpq-style connection URL) and runs the embedded
+  schema migrations on startup.
 
-```bash
-npm run build
+## Project structure
+
+```
+backend/
+  cmd/server/         # main HTTP server entry point
+  cmd/seed/           # `go run ./cmd/seed` loads YAML into the DB
+  internal/api/       # /api/v1 handlers
+  internal/domain/    # entities and DTOs
+  internal/store/     # sqlx-based repos + embedded migrations
+  internal/middleware # logger, recover, CORS, IP rate limiter
+  internal/static/    # embed.FS wrapper for the SvelteKit build
+  seed/               # initial content (research cards, jobs, partners)
+
+frontend/
+  src/routes/         # / · /about · /researches · /hiring · /partners
+  src/lib/components/ # Header, Footer, Hero, ResearchCard, JobCard, …
+  src/lib/api/        # server.ts (build-time) + client.ts (browser)
+  src/lib/styles/     # tokens.css (design tokens)
+  static/             # favicon, og image, robots.txt
 ```
 
-You can preview the production build with `npm run preview`.
+## Public API
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+All endpoints are JSON. Read endpoints are safe to call at prerender time.
+
+| Method | Path                                                  | Purpose                                                    |
+| ------ | ----------------------------------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/v1/health`                                      | Liveness                                                   |
+| GET    | `/api/v1/researches?tag=&limit=`                      | Public research cards                                      |
+| GET    | `/api/v1/jobs`                                        | Active job postings                                        |
+| GET    | `/api/v1/jobs/:id`                                    | Single job posting                                         |
+| GET    | `/api/v1/partners`                                    | Partners (logo wall)                                       |
+| POST   | `/api/v1/contact`                                     | Contact submission (rate-limited)                          |
+| POST   | `/api/v1/jobs/:id/applications`                       | Candidate application — multipart, ≤3 files, ≤10 MB each   |
+| POST   | `/api/v1/auth/login`                                  | Sign in with email + password                              |
+| POST   | `/api/v1/auth/logout`                                 | Clear session cookie                                       |
+| GET    | `/api/v1/auth/me`                                     | Current authenticated user                                 |
+| GET    | `/api/v1/admin/jobs`                                  | All postings (HR only)                                     |
+| POST   | `/api/v1/admin/jobs`                                  | Create posting (HR only)                                   |
+| PUT    | `/api/v1/admin/jobs/:id`                              | Update posting (HR only)                                   |
+| DELETE | `/api/v1/admin/jobs/:id`                              | Hard-delete posting (HR only)                              |
+| GET    | `/api/v1/admin/applications`                          | List submissions; filter by `?statusId=`, `?jobId=`, `?sort=newest\|oldest` (HR) |
+| GET    | `/api/v1/admin/applications/:id`                      | Submission detail with file metadata + status history (HR) |
+| PUT    | `/api/v1/admin/applications/:id/status`               | Move a candidate to a new status; writes history (HR)      |
+| GET    | `/api/v1/admin/applications/:id/files/:fileId`        | Stream a single attachment (HR only)                       |
+| GET    | `/api/v1/admin/application-statuses`                  | List statuses in the hiring workflow (HR only)             |
+| POST   | `/api/v1/admin/application-statuses`                  | Create a new pipeline status (HR only)                     |
+| PUT    | `/api/v1/admin/application-statuses/:id`              | Edit a status (rename, recolour, reorder, default) (HR)    |
+| DELETE | `/api/v1/admin/application-statuses/:id`              | Delete a status; refused if any application uses it (HR)   |
+
+## HR / admin
+
+Recruiters sign in at `/login` and manage the site at `/admin`:
+
+- `/admin` — job postings (create, edit, hide/show, hard-delete).
+- `/admin/applications` — candidate submissions: status badge, status changer, attachments, audit history. Filters by status, role and submitted order.
+- `/admin/statuses` — customise the hiring workflow: create/rename/recolour/reorder statuses, mark one as the default for new submissions.
+
+These pages are client-rendered SPAs (`prerender = false`, `ssr = false`)
+served through the SvelteKit `200.html` fallback so the rest of the site
+remains fully prerendered.
+
+Authentication is HMAC-signed session cookies (HttpOnly, SameSite=Strict,
+7-day TTL by default). Rotate `SESSION_SECRET` to invalidate every
+outstanding session.
+
+### Candidate applications
+
+Applications are accepted on `/hiring/<id>` via an inline form: name,
+email, optional message, and up to **3 files** of **10 MB** each. The
+request body is hard-capped at `MAX_UPLOAD_TOTAL_BYTES`; on the server
+the multipart parser is fronted by `http.MaxBytesReader` so oversized
+streams are rejected without buffering.
+
+Submissions write a row to `applications` and N rows to
+`application_files`; the bytes themselves live on disk under
+`UPLOAD_DIR/applications/<applicationID>/<random>-<safe-name>`. Original
+filenames are preserved in the DB row for display and the
+`Content-Disposition` header — disk names are randomised to defeat
+collisions and guessing.
+
+The endpoint is rate-limited per-IP via `APPLICATION_RPS` /
+`APPLICATION_BURST`.
+
+### Status workflow
+
+Each submission carries a status taken from a HR-defined pipeline. A
+sensible starter set ships with the database (`unread → reviewing →
+shortlist → interview → offer → accepted/rejected`) and HR can rename,
+recolour, reorder, add or remove rows from `/admin/statuses`.
+
+Every status has a `kind`:
+
+- `open` — in-flight pipeline state.
+- `accept` — terminal, candidate hired.
+- `reject` — terminal, candidate declined.
+
+New submissions are stamped with the row marked **default** (exactly one
+at any time; the system refuses to demote the last default without
+naming another). Each status change writes one row to
+`application_status_events`, so the detail panel always shows
+"From → To, who, when, optional note". A status cannot be deleted while
+any application or history row references it (returns `409`).
+
+### Bootstrap an HR user
+
+```sh
+# Interactive (password prompted, not echoed):
+make createuser EMAIL=hr@example.com
+
+# Non-interactive:
+make createuser EMAIL=hr@example.com PASSWORD='choose-a-strong-one'
+```
+
+Behind the scenes this runs `go run ./cmd/createuser`, which inserts a row
+into the `users` table with a bcrypt hash. Currently only the `hr` role is
+supported.
+
+### Production checklist
+
+- Set `SESSION_SECRET` to a long random value
+  (`openssl rand -base64 48`). The server refuses to start in
+  `APP_ENV=production` without it.
+- Serve the binary behind TLS — the `Secure` cookie flag is set when
+  `APP_ENV=production`, so the cookie won't be sent over plain HTTP.
+
+## Configuration
+
+The backend reads everything from environment variables. See
+[`backend/.env.example`](backend/.env.example) for the full list and defaults.
+The most relevant ones:
+
+- `APP_ENV` — `development` or `production`
+- `HTTP_ADDR` — listen address (default `:8080`)
+- `DATABASE_URL` — PostgreSQL connection URL (e.g.
+  `postgresql://user:pass@host:5432/lynxlinkage?sslmode=disable`)
+- `CORS_ALLOW_ORIGIN` — comma-separated origins (default `http://localhost:5173`)
+- `CONTACT_RPS` / `CONTACT_BURST` — per-IP rate limit on the contact endpoint
+- `APPLICATION_RPS` / `APPLICATION_BURST` — per-IP rate limit on the
+  candidate application endpoint
+- `UPLOAD_DIR`, `MAX_UPLOAD_FILES`, `MAX_UPLOAD_FILE_BYTES`,
+  `MAX_UPLOAD_TOTAL_BYTES` — candidate attachment storage and limits
+- `SESSION_SECRET`, `SESSION_TTL` — auth cookie signing
+
+The frontend uses `BACKEND_URL` (see [`frontend/.env.example`](frontend/.env.example))
+during prerender to point load functions at the backend.
+
+## Design notes
+
+- **Static-first.** The frontend is prerendered. Updating cards/jobs/partners
+  requires a rebuild — trigger this from CI on a webhook, or run
+  `make build` on the host. The contact form is the only runtime call.
+- **One binary.** In production the Go server serves both the static frontend
+  and the API on the same origin; no CORS, no separate frontend host.
+- **Lean store.** PostgreSQL backs the application; the `store/` package
+  is small and uses `sqlx` repositories so most queries are
+  straightforward SQL with named parameters.
+- **Style.** Vanilla CSS with design tokens (no Tailwind). Single navy
+  accent, generous whitespace, scoped Svelte styles.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs:
+
+- `go vet`, `go test` and `go build` on the backend.
+- `pnpm lint`, `pnpm check`, `pnpm build` on the frontend.
+- A combined embedded production binary build, uploaded as an artifact.
+
+## License
+
+Proprietary &mdash; lynxlinkage.
