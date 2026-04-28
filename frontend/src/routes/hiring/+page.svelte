@@ -29,7 +29,7 @@
 
 <Seo
 	title="Hiring"
-	description="Open roles at lynxlinkage in research, engineering, and operations."
+	description="Open roles at LynxLinkage in research, engineering, and operations."
 	path="/hiring"
 />
 

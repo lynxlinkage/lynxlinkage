@@ -29,11 +29,14 @@
 <header class="header" class:header--scrolled={scrolled}>
 	<div class="container header__inner">
 		<a class="header__brand" href="/" onclick={closeMobile}>
-			<svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-				<rect width="32" height="32" rx="6" fill="currentColor" />
-				<path d="M9 22V10h2v10h6v2z" fill="#fff" />
-				<path d="M19 10h3l3 12h-2l-2.5-8.5L18 22h-2z" fill="#fff" opacity="0.85" />
-			</svg>
+			<img
+				class="header__logo"
+				src="/brand/logo.svg"
+				alt=""
+				width="32"
+				height="31"
+				decoding="async"
+			/>
 			<span class="header__brand-text">{site.name}</span>
 		</a>
 
@@ -127,12 +130,21 @@
 		font-weight: 700;
 		letter-spacing: -0.02em;
 	}
+	.header__logo {
+		width: auto;
+		height: 32px;
+		display: block;
+		flex-shrink: 0;
+		filter: brightness(0) invert(1);
+		opacity: 0.95;
+	}
 	.header__brand:hover {
 		color: var(--accent-strong);
 	}
 	.header__brand-text {
 		font-size: 1.05rem;
 		color: var(--text);
+		letter-spacing: -0.03em;
 	}
 
 	.header__nav {

@@ -7,18 +7,40 @@
 	</defs>
 	<rect width="1200" height="630" fill="#FFFFFF"/>
 	<rect width="1200" height="630" fill="url(#dots)"/>
-	<g transform="translate(80, 80)">
-		<rect width="64" height="64" rx="12" fill="#0B2A6B"/>
-		<path d="M18 46V18h4v22h14v6z" fill="#FFFFFF"/>
-		<path d="M40 18h6l6 28h-4l-5-18.5L36 46h-4z" fill="#FFFFFF" opacity="0.85"/>
-	</g>
-	<text x="80" y="320" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B1220" letter-spacing="-2">
+
+	<!-- LynxLinkage wordmark paths from static/brand/logo.svg -->
+	<svg x="76" y="76" width="112" height="109" viewBox="0 0 140 136" aria-hidden="true">
+		<g transform="translate(0.000000,136.000000) scale(0.100000,-0.100000)"
+			fill="#0B2A6B" stroke="none">
+			<path d="M717 1222 c-42 -45 -77 -100 -77 -119 0 -5 21 -14 46 -21 26 -7 59
+-22 74 -32 16 -11 31 -20 34 -20 8 0 26 71 26 106 0 46 -29 134 -44 134 -7 0
+-34 -22 -59 -48z"/>
+			<path d="M246 1113 c11 -51 48 -117 87 -160 22 -24 43 -43 48 -43 5 0 16 17
+24 38 9 20 29 51 46 68 l30 31 -39 25 c-41 28 -104 51 -165 62 -37 7 -38 7
+-31 -21z"/>
+			<path d="M560 1057 c-81 -28 -123 -70 -149 -149 -15 -45 -47 -88 -67 -88 -8 0
+-14 -5 -14 -11 0 -16 86 -50 157 -62 42 -7 63 -16 63 -25 0 -8 -14 -55 -31
+-105 -54 -155 -38 -269 51 -370 34 -39 117 -94 126 -84 4 3 -6 18 -20 34 -42
+45 -59 102 -54 185 3 63 11 87 52 173 27 55 55 120 63 145 l13 45 -4 -61 c-3
+-43 -16 -90 -44 -155 -22 -52 -43 -115 -47 -141 -16 -105 54 -224 147 -249
+161 -43 347 113 351 294 3 90 -8 125 -58 202 -62 94 -61 165 1 165 30 0 54
+-26 54 -58 1 -26 1 -27 16 -7 11 14 14 34 11 63 -12 113 -159 157 -231 71 -47
+-55 -29 -128 54 -224 22 -26 50 -65 61 -87 46 -90 31 -218 -35 -293 l-34 -40
+20 60 c38 112 4 215 -105 327 -68 68 -111 134 -121 183 -6 26 -1 35 25 60 31
+30 89 112 89 127 0 4 -13 5 -29 2 -21 -5 -47 4 -104 35 -83 46 -150 58 -207
+38z m178 -93 c27 -18 27 -61 1 -77 -50 -31 -105 38 -59 75 27 22 30 22 58 2z
+m-184 -76 c22 -31 20 -45 -9 -64 -36 -24 -75 -6 -75 34 0 15 5 33 12 40 19 19
+55 14 72 -10z"/>
+		</g>
+	</svg>
+
+	<text x="76" y="320" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B1220" letter-spacing="-2">
 		Quantitative trading,
 	</text>
-	<text x="80" y="400" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B2A6B" letter-spacing="-2">
+	<text x="76" y="400" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" fill="#0B2A6B" letter-spacing="-2">
 		with research at the core.
 	</text>
-	<text x="80" y="540" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500" fill="#5A6478" letter-spacing="0.04em">
-		lynxlinkage.com
+	<text x="76" y="540" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500" fill="#5A6478" letter-spacing="0.04em">
+		LynxLinkage · lynxlinkage.com
 	</text>
 </svg>

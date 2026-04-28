@@ -29,7 +29,7 @@
 
 <Seo
 	title="Public researches"
-	description="Selected research notes from the lynxlinkage research desk on market microstructure, volatility, and infrastructure."
+	description="Selected research notes from the LynxLinkage research desk on market microstructure, volatility, and infrastructure."
 	path="/researches"
 />
 

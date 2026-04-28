@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -50,6 +52,13 @@ type Config struct {
 	// invalidates every outstanding session.
 	SessionSecret string
 	SessionTTL    time.Duration
+
+	// AppName is used in user-facing text (e.g. application ack emails).
+	AppName string
+
+	// SiteURL is the public https origin (no trailing slash), used in HTML
+	// emails for absolute asset and link URLs.
+	SiteURL string
 }
 
 // Load reads configuration from environment variables, applying defaults
@@ -66,12 +75,25 @@ func Load() (Config, error) {
 		DatabaseURL:     getEnv("DATABASE_URL", "postgresql://lynxlinkage:lynxlinkage@localhost:5432/lynxlinkage?sslmode=disable"),
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
 		CORSAllowOrigin: getEnv("CORS_ALLOW_ORIGIN", "http://localhost:5173"),
-		EmailFrom:       getEnv("EMAIL_FROM", ""),
-		EmailTo:         getEnv("EMAIL_TO", ""),
-		SMTPHost:        getEnv("SMTP_HOST", ""),
-		SMTPUser:        getEnv("SMTP_USER", ""),
-		SMTPPass:        getEnv("SMTP_PASS", ""),
+		EmailFrom: getEnv("EMAIL_FROM", ""),
+		EmailTo:   getEnv("EMAIL_TO", ""),
 	}
+
+	smtpURL := strings.TrimSpace(getEnv("SMTP_URL", ""))
+	urlHost, urlPort := parseSMTPAddress(smtpURL)
+	smtpHost := strings.TrimSpace(getEnv("SMTP_HOST", ""))
+	if smtpHost == "" {
+		smtpHost = urlHost
+	}
+	cfg.SMTPHost = smtpHost
+
+	smtpUser := firstNonEmpty(getEnv("SMTP_USER", ""), getEnv("SMTP_USERNAME", ""))
+	smtpUser = strings.TrimSpace(smtpUser)
+	cfg.SMTPUser = smtpUser
+
+	smtpPass := firstNonEmpty(getEnv("SMTP_PASS", ""), getEnv("SMTP_PASSWORD", ""))
+	smtpPass = strings.TrimSpace(smtpPass)
+	cfg.SMTPPass = smtpPass
 
 	rps, err := strconv.ParseFloat(getEnv("CONTACT_RPS", "0.2"), 64)
 	if err != nil {
@@ -85,9 +107,15 @@ func Load() (Config, error) {
 	}
 	cfg.ContactBurst = burst
 
-	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
-	if err != nil {
-		return cfg, fmt.Errorf("invalid SMTP_PORT: %w", err)
+	smtpPort := 587
+	if v, ok := os.LookupEnv("SMTP_PORT"); ok && strings.TrimSpace(v) != "" {
+		p, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return cfg, fmt.Errorf("invalid SMTP_PORT: %w", err)
+		}
+		smtpPort = p
+	} else if urlPort > 0 {
+		smtpPort = urlPort
 	}
 	cfg.SMTPPort = smtpPort
 
@@ -141,6 +169,10 @@ func Load() (Config, error) {
 	}
 	cfg.SessionTTL = mustDuration(getEnv("SESSION_TTL", "168h"))
 
+	cfg.AppName = getEnv("APP_NAME", "LynxLinkage")
+
+	cfg.SiteURL = strings.TrimSuffix(strings.TrimSpace(getEnv("SITE_URL", "https://lynxlinkage.com")), "/")
+
 	return cfg, nil
 }
 
@@ -176,4 +208,31 @@ func mustDuration(s string) time.Duration {
 		panic(fmt.Sprintf("invalid duration %q: %v", s, err))
 	}
 	return d
+}
+
+// firstNonEmpty returns the first non-empty (after trim) string.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// parseSMTPAddress parses "host:port" from SMTP_URL; if there is no port, host
+// is the whole string and the returned port is 0.
+func parseSMTPAddress(s string) (host string, port int) {
+	if s == "" {
+		return "", 0
+	}
+	h, pstr, err := net.SplitHostPort(s)
+	if err != nil {
+		return s, 0
+	}
+	p, err := strconv.Atoi(pstr)
+	if err != nil {
+		return h, 0
+	}
+	return h, p
 }

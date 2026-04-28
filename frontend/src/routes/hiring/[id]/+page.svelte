@@ -102,7 +102,7 @@
 
 <Seo
 	title={job.title}
-	description={`Open role at lynxlinkage: ${job.title} on the ${job.team} team, ${job.location}.`}
+	description={`Open role at LynxLinkage: ${job.title} on the ${job.team} team, ${job.location}.`}
 	path={`/hiring/${job.id}`}
 />
 

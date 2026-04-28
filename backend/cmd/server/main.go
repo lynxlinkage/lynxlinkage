@@ -19,6 +19,7 @@ import (
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/api"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/auth"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/config"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/mailout"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/static"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
@@ -64,6 +65,23 @@ func run() error {
 		return err
 	}
 
+	var mailer *mailout.Config
+	if cfg.SMTPHost != "" && cfg.EmailFrom != "" {
+		m := &mailout.Config{
+			From: cfg.EmailFrom,
+			Host: cfg.SMTPHost,
+			Port: cfg.SMTPPort,
+			User: cfg.SMTPUser,
+			Pass: cfg.SMTPPass,
+		}
+		if m.Ready() {
+			mailer = m
+		} else {
+			logger.Warn("smtp partial config; application ack emails will be skipped",
+				"host", cfg.SMTPHost, "port", cfg.SMTPPort, "from_set", cfg.EmailFrom != "", "user_set", cfg.SMTPUser != "")
+		}
+	}
+
 	server := &api.Server{
 		Logger:              logger,
 		Validate:            validator.New(validator.WithRequiredStructEnabled()),
@@ -78,6 +96,9 @@ func run() error {
 		ContactRL:           contactRL,
 		ApplyRL:             applyRL,
 		Auth:                authMgr,
+		Mail:                mailer,
+		AppName:             cfg.AppName,
+		SiteURL:             cfg.SiteURL,
 		MaxUploadFiles:      cfg.MaxUploadFiles,
 		MaxUploadFileBytes:  cfg.MaxUploadFileBytes,
 		MaxUploadTotalBytes: cfg.MaxUploadTotalBytes,

@@ -55,7 +55,7 @@
 
 <Seo
 	title="About us"
-	description="lynxlinkage is an agile team of researchers and engineers focused on statistical arbitrage in crypto markets."
+	description="LynxLinkage is an agile team of researchers and engineers focused on statistical arbitrage in crypto markets."
 	path="/about"
 />
 

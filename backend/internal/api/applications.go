@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/mailout"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/uploads"
 )
@@ -179,7 +180,27 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 	app.Files = saved
 	s.Logger.Info("application received",
 		"app_id", id, "job_id", jobID, "files", len(saved), "ip", c.ClientIP())
+	s.sendApplicationAck(name, email, job.Title)
 	c.JSON(http.StatusCreated, gin.H{"id": id, "files": len(saved)})
+}
+
+// sendApplicationAck emails the candidate a receipt after a successful
+// application. Failures are logged only; the HTTP response already succeeded.
+func (s *Server) sendApplicationAck(candidateName, to, jobTitle string) {
+	if s.Mail == nil || !s.Mail.Ready() {
+		return
+	}
+	subject := mailout.ApplicationAckSubject(jobTitle)
+	plain := mailout.ApplicationAckBody(candidateName, jobTitle, s.AppName)
+	html := mailout.ApplicationAckHTML(candidateName, jobTitle, s.AppName, s.SiteURL)
+	recipient := to
+	go func() {
+		if err := s.Mail.SendAlternative(recipient, subject, plain, html); err != nil {
+			s.Logger.Error("apply: ack email", "err", err, "to", recipient)
+			return
+		}
+		s.Logger.Info("apply: ack email sent", "to", recipient)
+	}()
 }
 
 func (s *Server) handleAdminListApplications(c *gin.Context) {

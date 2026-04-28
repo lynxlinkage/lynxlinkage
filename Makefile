@@ -1,4 +1,4 @@
-.PHONY: help install install-frontend install-backend sync dev backend frontend seed createuser build build-frontend build-backend run clean test lint check fmt
+.PHONY: help install install-frontend install-backend sync dev db backend frontend seed createuser build build-frontend build-backend run clean test lint check fmt
 
 PKG_MGR ?= $(shell command -v pnpm 2>/dev/null || command -v npm)
 BACKEND_DIR := backend
@@ -11,6 +11,7 @@ help:
 	@echo ""
 	@echo "  make install         Install backend (go mod) + frontend (npm/pnpm) deps"
 	@echo "  make dev             Run backend + frontend dev servers in parallel"
+	@echo "  make db              Start PostgreSQL (Docker) on :5432 for local dev"
 	@echo "  make backend         Run only the Go server (with air if available)"
 	@echo "  make frontend        Run only the SvelteKit dev server"
 	@echo "  make seed            Load backend/seed/*.yaml into the PostgreSQL database"
@@ -35,6 +36,11 @@ $(NODE_MODULES): $(FRONTEND_DIR)/package.json
 
 sync: install-frontend
 	cd $(FRONTEND_DIR) && $(PKG_MGR) exec svelte-kit sync
+
+# Local PostgreSQL (matches backend/.env.example credentials). If port 5432
+# is already in use, stop the other service or change the host port mapping.
+db:
+	docker compose up -d db
 
 dev: sync
 	@echo "Starting backend on :8080 and frontend on :5173 (Ctrl+C to stop)…"

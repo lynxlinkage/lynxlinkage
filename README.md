@@ -18,8 +18,9 @@ cd backend && go mod download && cd ..
 cd frontend && pnpm install   # or `npm install`
 cd ..
 
-# 3. Point DATABASE_URL at a running PostgreSQL instance and seed content
-export DATABASE_URL="postgresql://user:pass@localhost:5432/lynxlinkage?sslmode=disable"
+# 3. Start PostgreSQL and seed (default URL matches `docker compose` db)
+make db
+# wait until: docker compose exec db pg_isready -U lynxlinkage
 make seed
 
 # 4. Run backend and frontend dev servers in parallel

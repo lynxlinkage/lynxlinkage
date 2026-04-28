@@ -11,6 +11,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/auth"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
+	"github.com/lynxlinkage/lynxlinkage/backend/internal/mailout"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/middleware"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/uploads"
@@ -31,6 +32,9 @@ type Server struct {
 	ContactRL    *middleware.IPRateLimiter
 	ApplyRL      *middleware.IPRateLimiter
 	Auth         *auth.Manager
+	Mail         *mailout.Config
+	AppName      string
+	SiteURL      string
 
 	// Upload limits surfaced from config so handlers don't reach back
 	// into env-loading code.

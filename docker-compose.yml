@@ -30,6 +30,8 @@ services:
       POSTGRES_USER: lynxlinkage
       POSTGRES_PASSWORD: lynxlinkage
       POSTGRES_DB: lynxlinkage
+    ports:
+      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:

@@ -30,7 +30,7 @@
 
 <Seo
 	title="Partners"
-	description="Exchanges, brokers, and infrastructure partners that lynxlinkage works with around the world."
+	description="Exchanges, brokers, and infrastructure partners that LynxLinkage works with around the world."
 	path="/partners"
 />
 
