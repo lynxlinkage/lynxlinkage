@@ -1,4 +1,4 @@
-syntax=docker/dockerfile:1.6
+# syntax=docker/dockerfile:1.6
 
 # ---- Stage 1: build the SvelteKit frontend ----
 FROM node:22-alpine AS frontend-builder
@@ -17,8 +17,7 @@ COPY frontend/ .
 RUN if [ -f pnpm-lock.yaml ]; then pnpm build; else npm run build; fi
 
 # ---- Stage 2: build the Go backend with embedded frontend ----
-FROM golang:1.25-alpine AS backend-builder
-RUN apk add --no-cache make
+FROM golang:1.24-alpine AS backend-builder
 WORKDIR /src
 
 COPY backend/go.mod backend/go.sum ./backend/
