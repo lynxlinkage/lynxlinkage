@@ -41,17 +41,9 @@ func Handler(fsys fs.FS) gin.HandlerFunc {
 		req := c.Request
 		urlPath := strings.TrimPrefix(req.URL.Path, "/")
 
-		// Serve root: prefer index.html; fall back to the SPA shell (200.html)
-		// if the build didn't prerender the home page.
+		// Redirect bare root to /about (canonical landing page).
 		if urlPath == "" {
-			c.Header("Cache-Control", "no-cache")
-			target := "index.html"
-			if !fileExists(fsys, target) {
-				target = "200.html"
-			}
-			req2 := req.Clone(req.Context())
-			req2.URL.Path = "/" + target
-			fileServer.ServeHTTP(c.Writer, req2)
+			http.Redirect(c.Writer, c.Request, "/about", http.StatusMovedPermanently)
 			return
 		}
 
