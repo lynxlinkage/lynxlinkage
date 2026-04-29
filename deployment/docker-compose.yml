@@ -17,7 +17,7 @@ services:
       CONTACT_STAFF_TO: ${CONTACT_STAFF_TO:-eddy@lynxlinkage.com}
       SESSION_SECRET: ${SESSION_SECRET}
     volumes:
-      - app-uploads:/data/uploads
+      - app-uploads:/app/data/uploads
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app.rule=Host(`${DOMAIN}`)"

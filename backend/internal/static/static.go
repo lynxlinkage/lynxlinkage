@@ -40,8 +40,16 @@ func Handler(fsys fs.FS) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		req := c.Request
 		urlPath := strings.TrimPrefix(req.URL.Path, "/")
+
+		// Serve root as "/" so FileServer resolves index.html internally.
+		// Rewriting to "/index.html" triggers a redirect loop because
+		// FileServer always redirects /index.html → ./.
 		if urlPath == "" {
-			urlPath = "index.html"
+			c.Header("Cache-Control", "no-cache")
+			req2 := req.Clone(req.Context())
+			req2.URL.Path = "/"
+			fileServer.ServeHTTP(c.Writer, req2)
+			return
 		}
 
 		if !fileExists(fsys, urlPath) {
