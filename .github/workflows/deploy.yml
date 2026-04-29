@@ -45,8 +45,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
-            DEPLOY_PATH="${DEPLOY_PATH:-/root/lynxlinkage}"
+            DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
+            DEPLOY_PATH="${DEPLOY_PATH:-/root/lynxlinkage/deployment}"
             cd "${DEPLOY_PATH}"
             if [ -f env.sh ]; then
               # shellcheck disable=SC1091
