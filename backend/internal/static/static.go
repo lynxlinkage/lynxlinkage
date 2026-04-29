@@ -41,13 +41,16 @@ func Handler(fsys fs.FS) gin.HandlerFunc {
 		req := c.Request
 		urlPath := strings.TrimPrefix(req.URL.Path, "/")
 
-		// Serve root as "/" so FileServer resolves index.html internally.
-		// Rewriting to "/index.html" triggers a redirect loop because
-		// FileServer always redirects /index.html → ./.
+		// Serve root: prefer index.html; fall back to the SPA shell (200.html)
+		// if the build didn't prerender the home page.
 		if urlPath == "" {
 			c.Header("Cache-Control", "no-cache")
+			target := "index.html"
+			if !fileExists(fsys, target) {
+				target = "200.html"
+			}
 			req2 := req.Clone(req.Context())
-			req2.URL.Path = "/"
+			req2.URL.Path = "/" + target
 			fileServer.ServeHTTP(c.Writer, req2)
 			return
 		}
