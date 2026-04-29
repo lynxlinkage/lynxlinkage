@@ -34,5 +34,8 @@
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/inter": "^5.1.0",
     "marked": "^14.1.4"
+  },
+  "overrides": {
+    "cookie": "^0.7.0"
   }
 }
