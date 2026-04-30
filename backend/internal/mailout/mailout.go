@@ -67,7 +67,7 @@ Thank you for applying for the "%s" role. We have received your application and 
 
 We aim to reply within 7 days.
 
-If you have questions, reply to this message or write to hr@lynxlinkage.com.
+If you have questions, please reach out to hr@lynxlinkage.com.
 
 Best regards,
 %s
