@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/mail"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
@@ -15,6 +17,19 @@ import (
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/store"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/uploads"
 )
+
+// allowedUploadTypes is the set of MIME types candidates are permitted
+// to attach. The type is detected from the file's magic bytes on the
+// server side, so the client-supplied Content-Type header is ignored.
+var allowedUploadTypes = map[string]bool{
+	"application/pdf": true,
+	"image/jpeg":      true,
+	"image/png":       true,
+	"image/gif":       true,
+	"image/webp":      true,
+}
+
+const reapplyWindow = 7 * 24 * time.Hour
 
 // handleSubmitApplication handles a multipart application submission
 // against a job posting. The request body must be multipart/form-data
@@ -84,6 +99,20 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 		return
 	}
 
+	// Prevent the same candidate from applying to the same role within 7 days.
+	dup, err := s.Applications.ExistsRecentApplication(c.Request.Context(), jobID, email, reapplyWindow)
+	if err != nil {
+		s.Logger.Error("apply: dedup check", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	if dup {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "You have already applied for this role in the last 7 days. Please wait before reapplying.",
+		})
+		return
+	}
+
 	headers := c.Request.MultipartForm.File["files"]
 	if len(headers) > s.MaxUploadFiles {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -95,6 +124,27 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 		if h.Size > s.MaxUploadFileBytes {
 			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
 				"error": fmt.Sprintf("file %q exceeds %d bytes", h.Filename, s.MaxUploadFileBytes),
+			})
+			return
+		}
+	}
+
+	// Verify each file's real type by sniffing the first 512 bytes.
+	// This is done before writing to the database so no rollback is needed
+	// when a disallowed type is detected.
+	for _, h := range headers {
+		fh, err := h.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "could not read uploaded file"})
+			return
+		}
+		sniff := make([]byte, 512)
+		n, _ := io.ReadFull(fh, sniff)
+		_ = fh.Close()
+		detected := strings.SplitN(http.DetectContentType(sniff[:n]), ";", 2)[0]
+		if !allowedUploadTypes[detected] {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("file %q is not allowed; only PDF and image files (JPEG, PNG, GIF, WebP) are accepted", h.Filename),
 			})
 			return
 		}
@@ -142,7 +192,12 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "could not read uploaded file"})
 			return
 		}
-		rel, written, err := s.Uploads.Save(id, h.Filename, fh, s.MaxUploadFileBytes)
+		// Re-sniff to reconstruct a full reader; Open() is safe to call again.
+		sniff := make([]byte, 512)
+		n, _ := io.ReadFull(fh, sniff)
+		fullReader := io.MultiReader(bytes.NewReader(sniff[:n]), fh)
+		ct := strings.SplitN(http.DetectContentType(sniff[:n]), ";", 2)[0]
+		rel, written, err := s.Uploads.Save(id, h.Filename, fullReader, s.MaxUploadFileBytes)
 		_ = fh.Close()
 		if err != nil {
 			rollback()
@@ -155,10 +210,6 @@ func (s *Server) handleSubmitApplication(c *gin.Context) {
 			s.Logger.Error("apply: save file", "err", err, "name", h.Filename)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not store file"})
 			return
-		}
-		ct := h.Header.Get("Content-Type")
-		if ct == "" {
-			ct = "application/octet-stream"
 		}
 		f := domain.ApplicationFile{
 			ApplicationID: id,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lynxlinkage/lynxlinkage/backend/internal/domain"
@@ -113,6 +114,24 @@ func (r *ApplicationRepo) Create(ctx context.Context, a *domain.Application, def
 		}
 	}
 	return id, nil
+}
+
+// ExistsRecentApplication returns true when the given email already has
+// a submitted application for the same job within the window ending now.
+// Email comparison is case-insensitive.
+func (r *ApplicationRepo) ExistsRecentApplication(ctx context.Context, jobID int64, email string, window time.Duration) (bool, error) {
+	since := time.Now().Add(-window)
+	const q = `
+        SELECT COUNT(*) FROM applications
+        WHERE job_id    = $1
+          AND lower(email) = lower($2)
+          AND created_at  >= $3
+    `
+	var n int
+	if err := r.db.QueryRowxContext(ctx, q, jobID, email, since).Scan(&n); err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 // AddFile inserts a row pointing at a previously-saved file on disk.

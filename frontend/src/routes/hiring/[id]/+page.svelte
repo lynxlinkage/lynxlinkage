@@ -15,6 +15,22 @@
 	const MAX_FILES = 3;
 	const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+	// Only PDF and common image formats are accepted.
+	const ALLOWED_MIME = new Set([
+		'application/pdf',
+		'image/jpeg',
+		'image/png',
+		'image/gif',
+		'image/webp'
+	]);
+	const ALLOWED_EXT = /\.(pdf|jpe?g|png|gif|webp)$/i;
+
+	function isAllowedFile(f: File): boolean {
+		// MIME type from the browser is reliable for these well-known types;
+		// fall back to extension when the browser reports an empty string.
+		return f.type ? ALLOWED_MIME.has(f.type) : ALLOWED_EXT.test(f.name);
+	}
+
 	let name = $state('');
 	let email = $state('');
 	let message = $state('');
@@ -36,6 +52,11 @@
 		const picked = input.files ? Array.from(input.files) : [];
 		const next = [...files];
 		for (const f of picked) {
+			if (!isAllowedFile(f)) {
+				formError = `"${f.name}" is not allowed. Only PDF and image files (JPEG, PNG, GIF, WebP) are accepted.`;
+				input.value = '';
+				return;
+			}
 			if (next.some((x) => x.name === f.name && x.size === f.size)) continue;
 			next.push(f);
 		}
@@ -78,6 +99,10 @@
 			return;
 		}
 		for (const f of files) {
+			if (!isAllowedFile(f)) {
+				formError = `"${f.name}" is not a PDF or image file.`;
+				return;
+			}
 			if (f.size > MAX_FILE_BYTES) {
 				formError = `"${f.name}" is larger than 10 MB.`;
 				return;
@@ -194,14 +219,15 @@
 						<div class="apply__field">
 							<span>Attachments</span>
 							<p class="apply__hint">
-								Up to {MAX_FILES} files, max 10 MB each. CV, cover letter, samples, references — anything
-								that helps us read you.
+								Up to {MAX_FILES} files, max 10 MB each. PDF and images only (JPEG, PNG, GIF, WebP).
+								CV, cover letter, samples — anything that helps us read you.
 							</p>
 							<input
 								bind:this={fileInputEl}
 								type="file"
 								name="files"
 								multiple
+								accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
 								onchange={onPickFiles}
 								disabled={submitting || files.length >= MAX_FILES}
 							/>
