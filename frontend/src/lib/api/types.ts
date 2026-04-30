@@ -73,7 +73,6 @@ export interface JobUpsertPayload {
 	employmentType: EmploymentType;
 	descriptionMd: string;
 	applyUrlOrEmail: string;
-	postedAt?: string;
 	isActive?: boolean;
 }
 

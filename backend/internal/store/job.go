@@ -99,14 +99,14 @@ func (r *JobRepo) Update(ctx context.Context, j *domain.JobPosting, actorID *int
 	const q = `
         UPDATE job_postings SET
             title = $1, team = $2, location = $3, employment_type = $4,
-            description_md = $5, apply_url_or_email = $6, posted_at = $7,
-            is_active = $8,
-            updated_at = $9, updated_by = $10
-        WHERE id = $11
+            description_md = $5, apply_url_or_email = $6,
+            is_active = $7,
+            updated_at = $8, updated_by = $9
+        WHERE id = $10
     `
 	res, err := r.db.ExecContext(ctx, q,
 		j.Title, j.Team, j.Location, string(j.EmploymentType),
-		j.DescriptionMD, j.ApplyURLOrEmail, j.PostedAt, j.IsActive,
+		j.DescriptionMD, j.ApplyURLOrEmail, j.IsActive,
 		now, actorID,
 		j.ID,
 	)

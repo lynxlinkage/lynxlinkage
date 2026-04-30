@@ -24,8 +24,8 @@ func actorID(c *gin.Context) *int64 {
 }
 
 // jobUpsertRequest is the JSON shape posted to admin job create/update
-// endpoints. PostedAt is optional; the server fills today's date when
-// empty.
+// endpoints. PostedAt is intentionally absent — it is set to NOW() on
+// creation and never changed on subsequent edits.
 type jobUpsertRequest struct {
 	Title           string `json:"title"             validate:"required,min=1,max=200"`
 	Team            string `json:"team"              validate:"max=80"`
@@ -33,7 +33,6 @@ type jobUpsertRequest struct {
 	EmploymentType  string `json:"employmentType"    validate:"required,oneof=full_time part_time contract internship"`
 	DescriptionMd   string `json:"descriptionMd"     validate:"max=20000"`
 	ApplyUrlOrEmail string `json:"applyUrlOrEmail"   validate:"required,max=500"`
-	PostedAt        string `json:"postedAt"          validate:"omitempty"`
 	IsActive        *bool  `json:"isActive"`
 }
 
@@ -52,11 +51,7 @@ func (s *Server) handleAdminCreateJob(c *gin.Context) {
 	if !ok {
 		return
 	}
-	posting, err := s.toJobPosting(0, body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	posting := s.toJobPosting(0, body)
 	if _, err := s.Jobs.Create(c.Request.Context(), posting, actorID(c)); err != nil {
 		s.Logger.Error("admin create job", "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
@@ -93,11 +88,7 @@ func (s *Server) handleAdminUpdateJob(c *gin.Context) {
 	if !ok {
 		return
 	}
-	posting, err := s.toJobPosting(id, body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	posting := s.toJobPosting(id, body)
 	if err := s.Jobs.Update(c.Request.Context(), posting, actorID(c)); err != nil {
 		if store.IsNoRows(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
@@ -120,7 +111,6 @@ func (s *Server) bindJobBody(c *gin.Context) (jobUpsertRequest, bool) {
 	body.Team = strings.TrimSpace(body.Team)
 	body.Location = strings.TrimSpace(body.Location)
 	body.ApplyUrlOrEmail = strings.TrimSpace(body.ApplyUrlOrEmail)
-	body.PostedAt = strings.TrimSpace(body.PostedAt)
 	if err := s.Validate.Struct(body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return body, false
@@ -128,15 +118,7 @@ func (s *Server) bindJobBody(c *gin.Context) (jobUpsertRequest, bool) {
 	return body, true
 }
 
-func (s *Server) toJobPosting(id int64, body jobUpsertRequest) (*domain.JobPosting, error) {
-	posted := time.Now().UTC()
-	if body.PostedAt != "" {
-		t, err := parseDateOrTime(body.PostedAt)
-		if err != nil {
-			return nil, err
-		}
-		posted = t
-	}
+func (s *Server) toJobPosting(id int64, body jobUpsertRequest) *domain.JobPosting {
 	active := true
 	if body.IsActive != nil {
 		active = *body.IsActive
@@ -149,25 +131,7 @@ func (s *Server) toJobPosting(id int64, body jobUpsertRequest) (*domain.JobPosti
 		EmploymentType:  domain.EmploymentType(body.EmploymentType),
 		DescriptionMD:   body.DescriptionMd,
 		ApplyURLOrEmail: body.ApplyUrlOrEmail,
-		PostedAt:        posted,
+		PostedAt:        time.Now().UTC(),
 		IsActive:        active,
-	}, nil
-}
-
-func parseDateOrTime(s string) (time.Time, error) {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return t, nil
-	}
-	return time.Time{}, errInvalidDate
 }
-
-var errInvalidDate = newClientError("postedAt must be ISO date or RFC3339")
-
-type clientError struct{ msg string }
-
-func (e *clientError) Error() string { return e.msg }
-
-func newClientError(s string) *clientError { return &clientError{msg: s} }

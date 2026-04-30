@@ -36,7 +36,6 @@
 		employmentType: 'full_time',
 		descriptionMd: '',
 		applyUrlOrEmail: '',
-		postedAt: '',
 		isActive: true
 	};
 	let form = $state<JobUpsertPayload>({ ...blankForm });
@@ -71,8 +70,12 @@
 		}
 	}
 
+	// postedAtDisplay is shown as read-only text when editing an existing job.
+	let postedAtDisplay = $state<string>('');
+
 	function startCreate() {
 		form = { ...blankForm };
+		postedAtDisplay = '';
 		editingId = null;
 		formError = null;
 		mode = 'create';
@@ -86,9 +89,9 @@
 			employmentType: job.employmentType,
 			descriptionMd: job.descriptionMd,
 			applyUrlOrEmail: job.applyUrlOrEmail,
-			postedAt: job.postedAt ? job.postedAt.slice(0, 10) : '',
 			isActive: job.isActive
 		};
+		postedAtDisplay = job.postedAt ? job.postedAt.slice(0, 10) : '';
 		editingId = job.id;
 		formError = null;
 		mode = 'edit';
@@ -98,6 +101,7 @@
 		formError = null;
 		mode = 'list';
 		editingId = null;
+		postedAtDisplay = '';
 	}
 
 	async function onSave(e: SubmitEvent) {
@@ -138,7 +142,6 @@
 				employmentType: job.employmentType,
 				descriptionMd: job.descriptionMd,
 				applyUrlOrEmail: job.applyUrlOrEmail,
-				postedAt: job.postedAt ? job.postedAt.slice(0, 10) : undefined,
 				isActive: !job.isActive
 			});
 			await refresh();
@@ -316,21 +319,23 @@
 						</select>
 					</label>
 
-					<label class="field">
-						<span>Apply URL or email</span>
-						<input
-							type="text"
-							required
-							maxlength="500"
-							bind:value={form.applyUrlOrEmail}
-							placeholder="hiring@example.com or https://…"
-						/>
-					</label>
+				<label class="field">
+					<span>Apply URL or email</span>
+					<input
+						type="text"
+						required
+						maxlength="500"
+						bind:value={form.applyUrlOrEmail}
+						placeholder="hiring@example.com or https://…"
+					/>
+				</label>
 
-					<label class="field">
+				{#if mode === 'edit' && postedAtDisplay}
+					<div class="field">
 						<span>Posted at</span>
-						<input type="date" bind:value={form.postedAt} />
-					</label>
+						<p class="field__readonly">{postedAtDisplay}</p>
+					</div>
+				{/if}
 
 					<label class="field field--toggle">
 						<input type="checkbox" bind:checked={form.isActive} />
@@ -516,6 +521,16 @@
 		display: grid;
 		gap: 0.3rem;
 	}
+	.field__readonly {
+		margin: 0;
+		padding: 0.6rem 0.75rem;
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		background: var(--surface-muted, #f7f8fb);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+	}
+
 	.field--toggle {
 		display: flex;
 		align-items: center;
