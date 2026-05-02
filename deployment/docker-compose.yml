@@ -20,10 +20,17 @@ services:
       - app-uploads:/app/data/uploads
     labels:
       - "traefik.enable=true"
+      # Main router: public — landing page, public API, job listings
       - "traefik.http.routers.app.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.app.entrypoints=websecure"
       - "traefik.http.routers.app.tls.certresolver=myresolver"
       - "traefik.http.services.app.loadbalancer.server.port=8080"
+      # Admin router: Authelia-gated, group:hr only — admin UI + admin API + session exchange
+      - "traefik.http.routers.app-admin.rule=Host(`${DOMAIN}`) && (PathPrefix(`/admin`) || PathPrefix(`/api/v1/admin`) || Path(`/api/v1/auth/session`))"
+      - "traefik.http.routers.app-admin.entrypoints=websecure"
+      - "traefik.http.routers.app-admin.tls.certresolver=myresolver"
+      - "traefik.http.routers.app-admin.service=app"
+      - "traefik.http.routers.app-admin.middlewares=authelia@docker"
     pull_policy: always
     networks:
       - web_proxy

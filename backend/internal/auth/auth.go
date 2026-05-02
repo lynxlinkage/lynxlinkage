@@ -48,6 +48,11 @@ type Manager struct {
 	TTL    time.Duration
 	Users  *store.UserRepo
 	Secure bool // set Secure flag on cookies (true in production)
+
+	// DevMode skips the Remote-Email header requirement and uses DevEmail.
+	// Must never be set in production.
+	DevMode  bool
+	DevEmail string
 }
 
 // NewManager constructs an auth manager. Panics if secret is empty so
@@ -161,15 +166,45 @@ func (m *Manager) LoadUser(ctx context.Context, c *gin.Context) (*domain.User, e
 // stored by the RequireAuth middleware.
 const userKey = "auth.user"
 
-// RequireAuth returns a Gin middleware that requires a valid session
-// cookie and attaches the user to the request context.
+// RequireAuth returns a Gin middleware that reads the Remote-Email header
+// injected by Traefik's Authelia forwardauth middleware and loads the
+// corresponding user from the database.
+//
+// In DevMode (local development only) the header is optional; the
+// manager's DevEmail is used as a fallback and the user is auto-created
+// on first access so no seed script is needed.
 func (m *Manager) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, err := m.LoadUser(c.Request.Context(), c)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
+		email := c.GetHeader("Remote-Email")
+		if email == "" {
+			if !m.DevMode {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			email = m.DevEmail
 		}
+
+		ctx := c.Request.Context()
+		user, err := m.Users.GetByEmail(ctx, email)
+		if err != nil {
+			if !store.IsNoRows(err) || !m.DevMode {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			// Dev mode: auto-create the user on first access so migrations alone
+			// are sufficient to start developing locally.
+			id, createErr := m.Users.Create(ctx, email, "dev-no-password", domain.RoleHR)
+			if createErr != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not create dev user"})
+				return
+			}
+			user, err = m.Users.GetByID(ctx, id)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user not found after creation"})
+				return
+			}
+		}
+
 		c.Set(userKey, user)
 		c.Next()
 	}

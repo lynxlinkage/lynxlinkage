@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
 		ApiError,
@@ -45,7 +44,7 @@
 	onMount(async () => {
 		const user = await auth.load();
 		if (!user) {
-			void goto(`/login?next=${encodeURIComponent('/admin/statuses')}`, { replaceState: true });
+			window.location.href = '/admin/statuses';
 			return;
 		}
 		if (user.role !== 'hr') {
@@ -63,7 +62,7 @@
 			items = await adminListStatuses();
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 401) {
-				void goto(`/login?next=${encodeURIComponent('/admin/statuses')}`, { replaceState: true });
+				window.location.href = '/admin/statuses';
 				return;
 			}
 			listError = err instanceof Error ? err.message : 'Failed to load statuses';
@@ -145,8 +144,7 @@
 	}
 
 	async function onLogout() {
-		await auth.logout();
-		void goto('/login', { replaceState: true });
+		await auth.logout(); // redirects browser to Authelia logout
 	}
 
 	function badgeStyle(color: string): string {

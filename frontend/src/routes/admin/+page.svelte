@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
 		ApiError,
@@ -43,7 +42,9 @@
 	onMount(async () => {
 		const user = await auth.load();
 		if (!user) {
-			void goto(`/login?next=${encodeURIComponent('/admin')}`, { replaceState: true });
+			// Full page reload so Traefik+Authelia can gate the request and
+			// redirect to the Authelia login portal if needed.
+			window.location.href = '/admin';
 			return;
 		}
 		if (user.role !== 'hr') {
@@ -61,7 +62,7 @@
 			jobs = await adminListJobs();
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 401) {
-				void goto(`/login?next=${encodeURIComponent('/admin')}`, { replaceState: true });
+				window.location.href = '/admin';
 				return;
 			}
 			listError = err instanceof Error ? err.message : 'Failed to load jobs';
@@ -165,8 +166,7 @@
 	}
 
 	async function onLogout() {
-		await auth.logout();
-		void goto('/login', { replaceState: true });
+		await auth.logout(); // redirects browser to Authelia logout
 	}
 
 	function fmtDate(iso: string): string {

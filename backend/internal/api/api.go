@@ -35,6 +35,7 @@ type Server struct {
 	Mail           *mailout.Config
 	AppName        string
 	SiteURL        string
+	SiteDomain     string
 	ContactStaffTo string
 
 	// Upload limits surfaced from config so handlers don't reach back
@@ -69,9 +70,9 @@ func (s *Server) Register(r *gin.Engine) {
 		}
 		apply.POST("", s.handleSubmitApplication)
 
-		// Authentication: open login + protected logout/me.
+		// Authentication: session exchange (Authelia-gated at Traefik level) + logout.
 		v1auth := v1.Group("/auth")
-		v1auth.POST("/login", s.handleLogin)
+		v1auth.GET("/session", s.Auth.RequireAuth(), s.handleSession)
 		v1auth.POST("/logout", s.handleLogout)
 		v1auth.GET("/me", s.Auth.RequireAuth(), s.handleMe)
 

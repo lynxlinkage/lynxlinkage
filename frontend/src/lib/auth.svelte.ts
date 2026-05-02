@@ -1,4 +1,4 @@
-import { fetchMe, login as apiLogin, logout as apiLogout } from '$lib/api/client';
+import { fetchMe, logout as apiLogout } from '$lib/api/client';
 import type { User } from '$lib/api/types';
 
 /**
@@ -36,29 +36,10 @@ class AuthStore {
 		}
 	}
 
-	async login(email: string, password: string): Promise<User> {
-		this.loading = true;
-		this.error = null;
-		try {
-			const u = await apiLogin(email, password);
-			this.user = u;
-			this.loaded = true;
-			return u;
-		} catch (err) {
-			this.error = err instanceof Error ? err.message : 'Login failed';
-			throw err;
-		} finally {
-			this.loading = false;
-		}
-	}
-
 	async logout(): Promise<void> {
-		try {
-			await apiLogout();
-		} finally {
-			this.user = null;
-			this.loaded = true;
-		}
+		this.user = null;
+		this.loaded = true;
+		await apiLogout(); // redirects browser to Authelia logout
 	}
 }
 

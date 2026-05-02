@@ -77,25 +77,26 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 	return (await res.json()) as T;
 }
 
-export async function login(email: string, password: string): Promise<User> {
-	const body = await request<{ user: User }>('/api/v1/auth/login', {
-		method: 'POST',
-		body: JSON.stringify({ email, password })
-	});
-	return body.user;
-}
-
 export async function logout(): Promise<void> {
-	await request<unknown>('/api/v1/auth/logout', { method: 'POST' });
+	// Redirect to Authelia logout page to clear the SSO session cookie.
+	window.location.href = '/api/v1/auth/logout';
 }
 
 export async function fetchMe(): Promise<User | null> {
 	try {
-		const body = await request<{ user: User }>('/api/v1/auth/me', { method: 'GET' });
+		// Use redirect:'manual' so an Authelia 302 (unauthenticated) doesn't
+		// silently follow to a cross-origin page and mask the auth failure.
+		const res = await fetch('/api/v1/auth/session', {
+			method: 'GET',
+			credentials: 'same-origin',
+			redirect: 'manual',
+			headers: { Accept: 'application/json' }
+		});
+		if (!res.ok || res.type === 'opaqueredirect') return null;
+		const body = (await res.json()) as { user: User };
 		return body.user;
-	} catch (err) {
-		if (err instanceof ApiError && (err.status === 401 || err.status === 403)) return null;
-		throw err;
+	} catch {
+		return null;
 	}
 }
 

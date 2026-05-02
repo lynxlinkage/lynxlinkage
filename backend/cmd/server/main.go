@@ -59,6 +59,8 @@ func run() error {
 	applyRL := middleware.NewIPRateLimiter(cfg.ApplicationRPS, cfg.ApplicationBurst)
 	users := store.NewUserRepo(db)
 	authMgr := auth.NewManager(cfg.SessionSecret, cfg.SessionTTL, users, cfg.Env == "production")
+	authMgr.DevMode = cfg.DevMode
+	authMgr.DevEmail = cfg.DevEmail
 
 	uploadStore, err := uploads.NewStore(cfg.UploadDir)
 	if err != nil {
@@ -99,6 +101,7 @@ func run() error {
 		Mail:                mailer,
 		AppName:             cfg.AppName,
 		SiteURL:             cfg.SiteURL,
+		SiteDomain:          extractDomain(cfg.SiteURL),
 		ContactStaffTo:      cfg.ContactStaffTo,
 		MaxUploadFiles:      cfg.MaxUploadFiles,
 		MaxUploadFileBytes:  cfg.MaxUploadFileBytes,
@@ -148,6 +151,17 @@ func run() error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// extractDomain strips the scheme from a URL to get the bare hostname,
+// e.g. "https://lynxlinkage.com" → "lynxlinkage.com".
+func extractDomain(siteURL string) string {
+	for _, prefix := range []string{"https://", "http://"} {
+		if strings.HasPrefix(siteURL, prefix) {
+			return strings.TrimPrefix(siteURL, prefix)
+		}
+	}
+	return siteURL
 }
 
 func newLogger(cfg config.Config) *slog.Logger {

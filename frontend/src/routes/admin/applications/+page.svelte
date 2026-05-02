@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
 		ApiError,
@@ -44,7 +43,7 @@
 	onMount(async () => {
 		const user = await auth.load();
 		if (!user) {
-			void goto(`/login?next=${encodeURIComponent('/admin/applications')}`, { replaceState: true });
+			window.location.href = '/admin/applications';
 			return;
 		}
 		if (user.role !== 'hr') {
@@ -75,9 +74,7 @@
 			}
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 401) {
-				void goto(`/login?next=${encodeURIComponent('/admin/applications')}`, {
-					replaceState: true
-				});
+				window.location.href = '/admin/applications';
 				return;
 			}
 			listError = err instanceof Error ? err.message : 'Failed to load applications';
@@ -162,8 +159,7 @@
 	}
 
 	async function onLogout() {
-		await auth.logout();
-		void goto('/login', { replaceState: true });
+		await auth.logout(); // redirects browser to Authelia logout
 	}
 
 	function fmtDateTime(iso: string | undefined): string {

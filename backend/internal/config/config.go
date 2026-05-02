@@ -53,6 +53,11 @@ type Config struct {
 	SessionSecret string
 	SessionTTL    time.Duration
 
+	// DevMode skips Authelia header validation and injects DevEmail as the
+	// authenticated identity. Never set in production.
+	DevMode  bool
+	DevEmail string
+
 	// AppName is used in user-facing text (e.g. application ack emails).
 	AppName string
 
@@ -172,6 +177,9 @@ func Load() (Config, error) {
 		cfg.SessionSecret = "dev-only-not-secret-change-me"
 	}
 	cfg.SessionTTL = mustDuration(getEnv("SESSION_TTL", "168h"))
+
+	cfg.DevMode = getEnv("DEV_MODE", "") == "true"
+	cfg.DevEmail = getEnv("DEV_EMAIL", "hr@lynxlinkage.com")
 
 	cfg.AppName = getEnv("APP_NAME", "LynxLinkage")
 
