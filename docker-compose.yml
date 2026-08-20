@@ -15,7 +15,7 @@ services:
       # Override DATABASE_URL via an .env file or compose override to
       # point at your PostgreSQL instance.
       DATABASE_URL: ${DATABASE_URL:-postgresql://lynxlinkage:lynxlinkage@db:5432/lynxlinkage?sslmode=disable}
-      CORS_ALLOW_ORIGIN: "https://lynxlinkage.com"
+      CORS_ALLOW_ORIGIN: "https://lynxlinkage.com,https://mftik.com,https://www.mftik.com"
       CONTACT_RPS: "0.2"
       CONTACT_BURST: "3"
       UPLOAD_DIR: /data/uploads
