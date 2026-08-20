@@ -52,6 +52,13 @@ jobs:
               # shellcheck disable=SC1091
               source env.sh
             fi
+            REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+            if [ -n "$REPO_ROOT" ]; then
+              echo "Updating checkout at ${REPO_ROOT}..."
+              git -C "$REPO_ROOT" pull --ff-only
+            else
+              echo "DEPLOY_PATH is not inside a git checkout; skipping git pull"
+            fi
             echo "Pulling latest image..."
             docker compose pull app
             echo "Restarting LynxLinkage app..."
