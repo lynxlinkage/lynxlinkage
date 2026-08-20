@@ -22,7 +22,7 @@ type contactRequest struct {
 	Email   string `json:"email"   validate:"required,email,max=254"`
 	Company string `json:"company" validate:"omitempty,max=200"`
 	Message string `json:"message" validate:"required,min=3,max=5000"`
-	Kind    string `json:"kind"    validate:"omitempty,oneof=general partnership research hiring"`
+	Kind    string `json:"kind"    validate:"omitempty,oneof=general partnership research hiring mftik"`
 }
 
 func (s *Server) handleSubmitContact(c *gin.Context) {

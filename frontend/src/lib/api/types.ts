@@ -42,7 +42,7 @@ export interface Partner {
 	displayOrder: number;
 }
 
-export type ContactKind = 'general' | 'partnership' | 'research' | 'hiring';
+export type ContactKind = 'general' | 'partnership' | 'research' | 'hiring' | 'mftik';
 
 export interface ContactPayload {
 	name: string;

@@ -78,6 +78,7 @@
 					<option value="partnership">Partnership</option>
 					<option value="research">Research</option>
 					<option value="hiring">Hiring</option>
+					<option value="mftik">MFTIK</option>
 				</select>
 			</label>
 		</div>

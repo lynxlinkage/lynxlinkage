@@ -10,6 +10,7 @@ const (
 	ContactPartnership ContactKind = "partnership"
 	ContactResearch    ContactKind = "research"
 	ContactHiring      ContactKind = "hiring"
+	ContactMFTIK       ContactKind = "mftik"
 )
 
 // ContactSubmission is a message left through the contact form.
