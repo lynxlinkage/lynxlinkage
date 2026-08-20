@@ -1,18 +1,22 @@
 # Deploy after a successful "Build and Push Docker Images" run on main.
 #
+# Copies production compose files from this repo into DEPLOY_PATH via scp, then
+# SSHes to pull/restart the `app` service. Does not assume a git checkout on
+# the server (and does not run git pull there).
+#
 # Repository secrets:
-#   SSH_PRIVATE_KEY   — PEM for SSH to the server
+#   SSH_PRIVATE_KEY   — PEM for SSH/SCP to the server
 #   DEPLOY_HOST       — hostname or IP
 #
 # Optional secrets:
 #   DISCORD_WEBHOOK — for success/failure Discord embeds
 #
 # Optional repository variables:
-#   DEPLOY_PATH — remote dir with docker-compose (default in script: /root/lynxlinkage)
+#   DEPLOY_PATH — remote dir with docker-compose (default: /root/lynxlinkage/deployment)
 #
-# Edit the ssh-action `username:` field if you deploy as a non-root user.
+# Edit the ssh-action/scp-action `username:` field if you deploy as a non-root user.
 #
-# The remote stack should define a service named `app` (see root docker-compose.yml)
+# The remote stack should define a service named `app` (see deployment/docker-compose.yml)
 # pulling `ghcr.io/<owner>/lynxlinkage`; adjust pull/up targets if yours differs.
 
 name: Deploy to Production
@@ -36,6 +40,24 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Copy compose files to production server
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Only the files compose needs under DEPLOY_PATH (not the whole repo).
+          # strip_components drops the leading "deployment/" so files land in DEPLOY_PATH.
+          source: "deployment/docker-compose.yml,deployment/docker-compose.infra.yml"
+          target: ${{ env.DEPLOY_PATH }}
+          strip_components: 1
+          overwrite: true
+
       - name: Deploy to production server
         id: deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -51,13 +73,6 @@ jobs:
             if [ -f env.sh ]; then
               # shellcheck disable=SC1091
               source env.sh
-            fi
-            REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-            if [ -n "$REPO_ROOT" ]; then
-              echo "Updating checkout at ${REPO_ROOT}..."
-              git -C "$REPO_ROOT" pull --ff-only
-            else
-              echo "DEPLOY_PATH is not inside a git checkout; skipping git pull"
             fi
             echo "Pulling latest image..."
             docker compose pull app
