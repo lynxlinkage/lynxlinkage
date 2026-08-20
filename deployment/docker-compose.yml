@@ -7,7 +7,7 @@ services:
       APP_ENV: production
       HTTP_ADDR: :8080
       DATABASE_URL: ${DATABASE_URL}
-      CORS_ALLOW_ORIGIN: https://${DOMAIN}
+      CORS_ALLOW_ORIGIN: https://${DOMAIN},https://mftik.com,https://www.mftik.com
       APP_NAME: LynxLinkage
       SITE_URL: https://${DOMAIN}
       EMAIL_FROM: ${EMAIL_FROM}
