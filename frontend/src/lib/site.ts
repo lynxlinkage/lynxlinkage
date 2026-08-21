@@ -16,6 +16,7 @@ export const site = {
 	locations: ['Remote', 'Taiwan'],
 	nav: [
 		{ href: '/about', label: 'About us' },
+		{ href: '/product', label: 'Product' },
 		{ href: '/hiring', label: 'Hiring' },
 		{ href: '/partners', label: 'Partners' }
 	]
