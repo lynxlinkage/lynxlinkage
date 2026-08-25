@@ -17,12 +17,15 @@ import (
 //   - company optional up to 200 chars
 //   - message 3..5000 chars
 //   - kind one of the recognised ContactKind values
+//   - slug optional; when present (or kind is mftik), validated as an MFTIK
+//     instance name — reserved/invalid slugs return 400 and are not stored
 type contactRequest struct {
 	Name    string `json:"name"    validate:"required,min=2,max=120"`
 	Email   string `json:"email"   validate:"required,email,max=254"`
 	Company string `json:"company" validate:"omitempty,max=200"`
 	Message string `json:"message" validate:"required,min=3,max=5000"`
 	Kind    string `json:"kind"    validate:"omitempty,oneof=general partnership research hiring mftik"`
+	Slug    string `json:"slug"    validate:"omitempty,max=32"`
 }
 
 func (s *Server) handleSubmitContact(c *gin.Context) {
@@ -44,11 +47,17 @@ func (s *Server) handleSubmitContact(c *gin.Context) {
 		kind = domain.ContactGeneral
 	}
 
+	message := strings.TrimSpace(req.Message)
+	if err := domain.ValidateContactMFTIKFields(kind, req.Slug, message); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	sub := &domain.ContactSubmission{
 		Name:      strings.TrimSpace(req.Name),
 		Email:     strings.TrimSpace(strings.ToLower(req.Email)),
 		Company:   strings.TrimSpace(req.Company),
-		Message:   strings.TrimSpace(req.Message),
+		Message:   message,
 		Kind:      kind,
 		IPAddress: c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
